@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     saveSettingsBtn.addEventListener('click', function() {
         const canvasInstance = canvasInstanceInput.value.trim();
         const authToken = authTokenInput.value.trim();
+        const devMode = document.getElementById('devMode').checked;
 
         if (!canvasInstance) {
             showStatus('Please enter a Canvas instance URL.', 'error');
@@ -29,7 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Save settings
         chrome.storage.local.set({
             canvasInstance: canvasInstance,
-            authToken: authToken
+            authToken: authToken,
+            devMode: devMode
         }, function() {
             showStatus('Settings saved successfully!', 'success');
 
@@ -87,12 +89,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Load saved settings
 function loadSettings() {
-    chrome.storage.local.get(['canvasInstance', 'authToken'], function(result) {
+    chrome.storage.local.get(['canvasInstance', 'authToken', 'devMode'], function(result) {
         if (result.canvasInstance) {
             document.getElementById('canvasInstance').value = result.canvasInstance;
         }
         if (result.authToken) {
             document.getElementById('authToken').value = result.authToken;
+        }
+        if (result.devMode) {
+            document.getElementById('devMode').checked = result.devMode;
         }
     });
 }

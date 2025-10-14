@@ -6,6 +6,7 @@ let draggedClass = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize
+    loadDevMode();
     loadSchedule();
     loadClasses();
     generateScheduleGrid();
@@ -235,6 +236,18 @@ function clearSchedule() {
         saveSchedule();
         showStatus('Schedule cleared.', 'success');
     }
+}
+
+// Load dev mode setting and show/hide manual user ID input
+function loadDevMode() {
+    chrome.storage.local.get(['devMode'], function(result) {
+        const devModeSection = document.getElementById('devModeSection');
+        if (result.devMode) {
+            devModeSection.style.display = 'block';
+        } else {
+            devModeSection.style.display = 'none';
+        }
+    });
 }
 
 // Show status message
