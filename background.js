@@ -77,7 +77,8 @@ async function getCourses() {
 
         const user = await userResponse.json();
         // Extract the numeric part from the end of the user ID
-        const userId = user.id.toString().match(/(\d+)$/)[1];
+        const fullUserId = user.id.toString();
+        const userId = fullUserId.substring(fullUserId.lastIndexOf('000') + 3); // Get everything after the last '000'
 
         // Now get courses for this specific user
         const response = await fetch(`${CANVAS_API_BASE}/users/${userId}/courses`, {
