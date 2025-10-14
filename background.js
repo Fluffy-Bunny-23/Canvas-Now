@@ -67,7 +67,8 @@ async function getCourses() {
         }
 
         const user = await userResponse.json();
-        const userId = user.id;
+        // Extract the numeric part from the end of the user ID
+        const userId = user.id.toString().match(/(\d+)$/)[1];
 
         // Now get courses for this specific user
         const response = await fetch(`${CANVAS_API_BASE}/users/${userId}/courses`, {
