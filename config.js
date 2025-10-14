@@ -64,14 +64,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(authResult.error);
             }
 
-            // Test getting courses
-            const courses = await chrome.runtime.sendMessage({ action: 'getCourses' });
+            // Test getting current user
+            const user = await chrome.runtime.sendMessage({ action: 'getCurrentUser' });
 
-            if (courses.error) {
-                throw new Error(courses.error);
+            if (user.error) {
+                throw new Error(user.error);
             }
 
-            showStatus(`Connection successful! Found ${courses.length} courses.`, 'success');
+            showStatus(`Connection successful! Logged in as ${user.name} (${user.email}).`, 'success');
         } catch (error) {
             console.error('Connection test failed:', error);
             showStatus(`Connection failed: ${error.message}`, 'error');
