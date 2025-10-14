@@ -16,7 +16,16 @@ chrome.runtime.onInstalled.addListener(function() {
         schedule: {},
         classes: []
     });
+
+    // Load auth token on startup
+    loadAuthToken();
 });
+
+// Load auth token from storage
+async function loadAuthToken() {
+    const result = await chrome.storage.local.get(['authToken']);
+    authToken = result.authToken;
+}
 
 // Handle messages from popup and other parts
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
