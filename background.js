@@ -63,22 +63,31 @@ async function getCourses() {
     }
 
     try {
-        // First get the current user to obtain user ID
-        const userResponse = await fetch(`${CANVAS_API_BASE}/users/self`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+        // Check if manual user ID is set (dev mode)
+        const storageResult = await chrome.storage.local.get(['manualUserId']);
+        let userId;
+
+        if (storageResult.manualUserId) {
+            // Use manual user ID from dev mode
+            userId = storageResult.manualUserId;
+        } else {
+            // First get the current user to obtain user ID
+            const userResponse = await fetch(`${CANVAS_API_BASE}/users/self`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!userResponse.ok) {
+                throw new Error(`Failed to get user info: ${userResponse.status}`);
             }
-        });
 
-        if (!userResponse.ok) {
-            throw new Error(`Failed to get user info: ${userResponse.status}`);
+            const user = await userResponse.json();
+            // Extract the numeric part from the end of the user ID
+            const fullUserId = user.id.toString();
+            userId = fullUserId.substring(fullUserId.lastIndexOf('000') + 3); // Get everything after the last '000'
         }
-
-        const user = await userResponse.json();
-        // Extract the numeric part from the end of the user ID
-        const fullUserId = user.id.toString();
-        const userId = fullUserId.substring(fullUserId.lastIndexOf('000') + 3); // Get everything after the last '000'
 
         // Now get courses for this specific user
         const response = await fetch(`${CANVAS_API_BASE}/users/${userId}/courses`, {

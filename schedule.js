@@ -15,6 +15,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('refreshClasses').addEventListener('click', loadClasses);
     document.getElementById('saveSchedule').addEventListener('click', saveSchedule);
     document.getElementById('clearSchedule').addEventListener('click', clearSchedule);
+    document.getElementById('saveManualUserId').addEventListener('click', saveManualUserId);
+
+    // Enter key listener for manual user ID input
+    document.getElementById('manualUserId').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            saveManualUserId();
+        }
+    });
 
     // Drag and drop setup
     setupDragAndDrop();
@@ -238,12 +246,28 @@ function clearSchedule() {
     }
 }
 
+// Save manual user ID to storage
+function saveManualUserId() {
+    const manualUserId = document.getElementById('manualUserId').value.trim();
+    if (manualUserId) {
+        chrome.storage.local.set({ manualUserId: manualUserId }, function() {
+            showStatus('Manual User ID saved!', 'success');
+        });
+    } else {
+        showStatus('Please enter a valid User ID.', 'error');
+    }
+}
+
 // Load dev mode setting and show/hide manual user ID input
 function loadDevMode() {
-    chrome.storage.local.get(['devMode'], function(result) {
+    chrome.storage.local.get(['devMode', 'manualUserId'], function(result) {
         const devModeSection = document.getElementById('devModeSection');
         if (result.devMode) {
             devModeSection.style.display = 'block';
+            // Load saved manual user ID
+            if (result.manualUserId) {
+                document.getElementById('manualUserId').value = result.manualUserId;
+            }
         } else {
             devModeSection.style.display = 'none';
         }
