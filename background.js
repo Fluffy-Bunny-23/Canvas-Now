@@ -54,7 +54,23 @@ async function getCourses() {
     }
 
     try {
-        const response = await fetch(`${CANVAS_API_BASE}/courses`, {
+        // First get the current user to obtain user ID
+        const userResponse = await fetch(`${CANVAS_API_BASE}/users/self`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!userResponse.ok) {
+            throw new Error(`Failed to get user info: ${userResponse.status}`);
+        }
+
+        const user = await userResponse.json();
+        const userId = user.id;
+
+        // Now get courses for this specific user
+        const response = await fetch(`${CANVAS_API_BASE}/users/${userId}/courses`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
