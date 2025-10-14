@@ -54,7 +54,7 @@ async function getCourses() {
     }
 
     try {
-        const response = await fetch(`${CANVAS_API_BASE}/courses?enrollment_state=active`, {
+        const response = await fetch(`${CANVAS_API_BASE}/courses`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
