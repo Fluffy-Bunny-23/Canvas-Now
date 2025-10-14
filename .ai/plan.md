@@ -377,7 +377,7 @@ Canvas-Now/
 - Accurate schedule management
 - Reliable API integration
 
-### Performance
+### Performance Metric
 
 - Fast popup response times
 - Efficient API calls

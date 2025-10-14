@@ -1,73 +1,180 @@
 # Canvas-Now Extension
 
-This Chromium extension helps students quickly navigate to their current class on Canvas Learning Management System (LMS). When clicked, the extension automatically determines the user's current class based on their schedule and opens the corresponding Canvas page.
+A Chromium extension that helps users quickly navigate to their current class on Canvas LMS with an integrated schedule management system.
 
 ## Features
 
-- **Quick Class Navigation**: Click the extension icon to instantly switch to your current class on Canvas
-- **Schedule Management**: Interactive drag-and-drop interface to build and manage your weekly class schedule
-- **Canvas API Integration**: Automatically fetches class information from your Canvas account
-- **Settings Page**: Configure extension preferences and manage authentication
-- **Time-Based Detection**: Automatically determines which class is currently active based on the time of day
+- **Quick Class Navigation**: Click the extension icon to instantly switch to your current class based on your schedule
+- **Schedule Management**: Drag-and-drop interface to build your weekly class schedule
+- **Canvas API Integration**: Automatically syncs with your Canvas courses
+- **Settings Page**: Configure Canvas instance and API authentication
+- **Persistent Storage**: Your schedule and settings are saved locally
 
 ## Installation
 
-1. Download or clone this repository
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode" in the top right corner
-4. Click "Load unpacked" and select the extension directory
-5. The extension should now appear in your browser toolbar
+### Development Setup
+
+1. Clone or download this repository
+2. Open Chrome/Edge and navigate to `chrome://extensions/`
+3. Enable "Developer mode" in the top right
+4. Click "Load unpacked" and select the Canvas-Now folder
+5. The extension should now appear in your extensions list
+
+### Production Setup
+
+1. Package the extension as a .crx file
+2. Install via Chrome Web Store or manual installation
 
 ## Usage
 
-### Basic Navigation
+### Initial Setup
 
-1. Click the extension icon in your browser toolbar
-2. The extension will automatically open your current class page on Canvas
+1. Click the Canvas-Now extension icon
+2. Click "Manage Schedule" to open the settings
+3. Enter your Canvas instance URL (e.g., `https://canvas.instructure.com`)
+4. Get your Canvas API token from Account Settings > Approved Integrations
+5. Enter the API token and save settings
+6. Test the connection to ensure it's working
 
-### Managing Your Schedule
+### Building Your Schedule
 
-1. Right-click the extension icon and select "Options"
-2. Click the "Go to Schedule" link
-3. Drag class items from the left sidebar onto the schedule grid
-4. Drop classes into appropriate time slots for each day of the week
+1. In the schedule manager, your Canvas classes will appear in the left sidebar
+2. Drag classes from the sidebar to the appropriate time slots in the weekly grid
+3. Click "Save Schedule" to store your schedule
+4. To remove a class, click on an occupied time slot
 
-### Configuration
+### Using the Extension
 
-1. Right-click the extension icon and select "Options"
-2. Enter your Canvas instance URL and authentication details
-3. Configure any additional preferences as needed
+- Click the extension icon to quickly jump to your current/next class
+- The extension determines your current class based on the current time and your saved schedule
 
-## Permissions Required
+## File Structure
 
-- `activeTab`: Access current browser tab for navigation
-- `storage`: Save schedule and settings data locally
-- `identity`: Handle Canvas API authentication
-- `https://*/api/v1/*`: Access Canvas LMS API endpoints
+```
+Canvas-Now/
+├── manifest.json          # Extension manifest
+├── popup.html            # Main popup interface
+├── popup.js              # Popup functionality
+├── config.html           # Settings page
+├── config.js             # Settings functionality
+├── schedule.html         # Schedule management page
+├── schedule.js           # Schedule drag-and-drop logic
+├── schedule.css          # Schedule page styles
+├── background.js         # Service worker for API calls
+├── icons/                # Extension icons
+│   ├── icon16.png
+│   ├── icon32.png
+│   ├── icon48.png
+│   └── icon128.png
+├── .ai/                  # Planning documents
+│   └── plan.md
+└── readme.md             # This file
+```
+
+## API Integration
+
+The extension integrates with the Canvas LMS REST API:
+
+- **Courses List**: `GET /api/v1/courses` - Retrieves enrolled courses
+- **Authentication**: Bearer token authentication
+- **Supported Instances**: Any Canvas LMS instance
+
+## Permissions
+
+The extension requires the following permissions:
+
+- `activeTab`: Access current tab for navigation
+- `storage`: Save schedule and settings data
+- `identity`: OAuth authentication (future enhancement)
+- `https://*/api/v1/*`: Canvas API access
 
 ## Browser Compatibility
 
-- Google Chrome (recommended)
-- Microsoft Edge
+- Chrome 88+
+- Edge 88+
 - Other Chromium-based browsers
 
 ## Development
 
-This extension is built using:
+### Adding Features
 
-- Manifest V3 for modern browser compatibility
-- Vanilla JavaScript for core functionality
-- HTML5 Drag and Drop API for schedule management
-- Canvas LMS REST API for data integration
+1. Update the implementation plan in `.ai/plan.md`
+2. Implement changes following the existing code patterns
+3. Test thoroughly across different Canvas instances
+4. Update this README with new features
+
+### Testing
+
+- Test with different Canvas instances
+- Verify API compatibility
+- Test drag-and-drop functionality
+- Validate schedule persistence
 
 ## Privacy
 
-The extension only accesses your Canvas data through the official API and stores information locally on your device. No data is transmitted to external servers except for Canvas API calls.
+- All data is stored locally in browser storage
+- No data is transmitted to external servers except Canvas LMS
+- API tokens are stored securely using Chrome's storage API
 
-## Support
+## Contributing
 
-For issues or feature requests, please check the extension's settings page or create an issue in the repository.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
-Canvas-Now  © 2025 by Fluffy-Bunny-23 is licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit <https://creativecommons.org/licenses/by-nc-sa/4.0/>
+This project is open source. See LICENSE file for details.
+
+## Support
+
+For issues or questions:
+
+1. Check the troubleshooting section below
+2. Open an issue on GitHub
+3. Contact the maintainers
+
+## Troubleshooting
+
+### Common Issues
+
+**"No current class found"**
+- Check that your schedule is set up correctly
+- Verify the current time matches your class times
+- Ensure your system clock is accurate
+
+**"Error loading classes"**
+- Verify your Canvas API token is correct
+- Check that your Canvas instance URL is valid
+- Ensure you have active course enrollments
+
+**"Connection failed"**
+- Test your internet connection
+- Verify Canvas is accessible
+- Check API token permissions
+
+### Debug Mode
+
+Enable verbose logging in the browser console for debugging.
+
+## Roadmap
+
+- [ ] OAuth 2.0 authentication flow
+- [ ] Multiple schedule templates
+- [ ] Class notifications and reminders
+- [ ] Import/export schedule data
+- [ ] Mobile responsive design improvements
+- [ ] Keyboard shortcuts
+- [ ] Dark mode theme
+
+## Changelog
+
+### Version 1.0.0
+- Initial release
+- Basic schedule management
+- Canvas API integration
+- Drag-and-drop interface
+- Settings page
+- Quick class navigation

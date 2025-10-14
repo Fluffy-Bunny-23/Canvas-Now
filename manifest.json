@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Canvas-Now",
+  "version": "1.0.0",
+  "description": "Quickly navigate to your current class on Canvas LMS with schedule management",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://*/api/v1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Switch to Current Class"
+  },
+  "options_page": "config.html",
+  "background": {
+    "service_worker": "background.js"
+  }
+}

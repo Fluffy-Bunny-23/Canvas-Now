@@ -1,0 +1,143 @@
+/* schedule.css - Additional styles for schedule page */
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .schedule-grid {
+        overflow-x: auto;
+    }
+
+    .schedule-header,
+    .schedule-row {
+        min-width: 600px;
+    }
+}
+
+/* Drag and drop visual feedback */
+.time-slot.drag-over {
+    background-color: #e9ecef !important;
+    border: 2px dashed #007bff;
+}
+
+.class-item.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+/* Class item variations */
+.class-item:nth-child(odd) {
+    background: #f8f9fa;
+}
+
+.class-item:nth-child(even) {
+    background: #e9ecef;
+}
+
+/* Time slot hover effects */
+.time-slot:not(.occupied):hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+/* Occupied slot styles */
+.time-slot.occupied {
+    font-weight: bold;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 5px;
+}
+
+/* Button styles */
+button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+button:disabled:hover {
+    background-color: #6c757d;
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.loading {
+    animation: pulse 1.5s infinite;
+}
+
+/* Status message animations */
+.status {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Tooltip styles */
+.time-slot[title] {
+    position: relative;
+}
+
+.time-slot[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+/* Focus styles for accessibility */
+.class-item:focus,
+.time-slot:focus,
+button:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+    .buttons,
+    .sidebar {
+        display: none;
+    }
+
+    .schedule-grid {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+
+    .time-slot.occupied {
+        background: #000 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+    }
+}
