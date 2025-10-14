@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const openScheduleBtn = document.getElementById('openSchedule');
     const statusDiv = document.getElementById('status');
 
+    // Load and display user info on popup open
+    loadUserInfo();
+
     // Switch to current class
     switchClassBtn.addEventListener('click', async function() {
         try {
@@ -33,6 +36,46 @@ document.addEventListener('DOMContentLoaded', function() {
         window.close();
     });
 });
+
+// Load and display user info
+async function loadUserInfo() {
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'getCurrentUser' });
+
+        if (response.error) {
+            throw new Error(response.error);
+        }
+
+        // Display user info in the popup
+        const userInfoDiv = document.createElement('div');
+        userInfoDiv.id = 'userInfo';
+        userInfoDiv.innerHTML = `
+            <div style="margin-bottom: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+                <strong>${response.name}</strong><br>
+                <small>${response.email}</small>
+            </div>
+        `;
+
+        // Insert user info before the buttons
+        const container = document.querySelector('body');
+        const h3 = container.querySelector('h3');
+        container.insertBefore(userInfoDiv, h3.nextSibling);
+
+    } catch (error) {
+        console.error('Error loading user info:', error);
+        const userInfoDiv = document.createElement('div');
+        userInfoDiv.id = 'userInfo';
+        userInfoDiv.innerHTML = `
+            <div style="margin-bottom: 10px; padding: 10px; background-color: #f8d7da; border-radius: 4px; color: #721c24;">
+                Error loading user info: ${error.message}
+            </div>
+        `;
+
+        const container = document.querySelector('body');
+        const h3 = container.querySelector('h3');
+        container.insertBefore(userInfoDiv, h3.nextSibling);
+    }
+}
 
 // Get current class based on time and schedule
 async function getCurrentClass() {

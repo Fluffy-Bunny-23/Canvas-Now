@@ -21,6 +21,13 @@ chrome.runtime.onInstalled.addListener(function() {
 // Handle messages from popup and other parts
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     switch (request.action) {
+        case 'getCurrentUser':
+            getCurrentUser().then(sendResponse).catch(error => {
+                console.error('Error getting current user:', error);
+                sendResponse({ error: error.message });
+            });
+            return true; // Keep message channel open for async response
+
         case 'getCourses':
             getCourses().then(sendResponse).catch(error => {
                 console.error('Error getting courses:', error);
@@ -90,6 +97,41 @@ async function authenticate() {
     }
 
     return { success: true };
+}
+
+// Get current user from Canvas API
+async function getCurrentUser() {
+    if (!authToken) {
+        throw new Error('Not authenticated with Canvas');
+    }
+
+    try {
+        const response = await fetch(`${CANVAS_API_BASE}/users/self`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const user = await response.json();
+
+        // Transform to our format
+        const userInfo = {
+            id: user.id.toString(),
+            name: user.name,
+            email: user.primary_email || user.email,
+            avatar_url: user.avatar_url
+        };
+
+        return userInfo;
+    } catch (error) {
+        console.error('Error fetching current user:', error);
+        throw error;
+    }
 }
 
 // Helper function to get current Canvas instance URL
