@@ -218,9 +218,9 @@
                 <thead>
                     <tr class="schedule-header-row">
                         <td class="schedule-header-cell">Time</td>
-                        <td class="schedule-header-cell">Day A (MS)</td>
-                        <td class="schedule-header-cell">Day B (MS)</td>
-                        <td class="schedule-header-cell">Day C (MS)</td>
+                        <td class="schedule-header-cell">Day A</td>
+                        <td class="schedule-header-cell">Day B</td>
+                        <td class="schedule-header-cell">Day C</td>
                     </tr>
                 </thead>
                 <tbody id="scheduleBody">
@@ -273,8 +273,26 @@
             </div>
 
             <div class="settings-section">
-                <div class="settings-label">Lunch Period:</div>
-                <select class="settings-input" id="lunchPeriod">
+                <div class="settings-label">Lunch Period - Day A:</div>
+                <select class="settings-input" id="lunchPeriodA">
+                    <option value="4">After Period 4</option>
+                    <option value="5">After Period 5</option>
+                    <option value="6">After Period 6</option>
+                </select>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Lunch Period - Day B:</div>
+                <select class="settings-input" id="lunchPeriodB">
+                    <option value="4">After Period 4</option>
+                    <option value="5">After Period 5</option>
+                    <option value="6">After Period 6</option>
+                </select>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Lunch Period - Day C:</div>
+                <select class="settings-input" id="lunchPeriodC">
                     <option value="4">After Period 4</option>
                     <option value="5">After Period 5</option>
                     <option value="6">After Period 6</option>

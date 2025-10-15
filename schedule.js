@@ -50,8 +50,18 @@ document.addEventListener('DOMContentLoaded', function() {
         generateScheduleTable();
     });
 
-    document.getElementById('lunchPeriod').addEventListener('change', function() {
-        scheduleSettings.lunchPeriod = parseInt(this.value);
+    document.getElementById('lunchPeriodA').addEventListener('change', function() {
+        scheduleSettings.lunchPeriodA = parseInt(this.value);
+        generateScheduleTable();
+    });
+
+    document.getElementById('lunchPeriodB').addEventListener('change', function() {
+        scheduleSettings.lunchPeriodB = parseInt(this.value);
+        generateScheduleTable();
+    });
+
+    document.getElementById('lunchPeriodC').addEventListener('change', function() {
+        scheduleSettings.lunchPeriodC = parseInt(this.value);
         generateScheduleTable();
     });
 
@@ -146,7 +156,9 @@ function loadScheduleSettings() {
                 startTime: '07:00',
                 periodLength: 55,
                 passingTime: 5,
-                lunchPeriod: 4,
+                lunchPeriodA: 4,
+                lunchPeriodB: 4,
+                lunchPeriodC: 4,
                 lunchLength: 40
             };
         }
@@ -170,7 +182,12 @@ function updateSettingsUI() {
     document.getElementById('startTime').value = scheduleSettings.startTime;
     document.getElementById('periodLength').value = scheduleSettings.periodLength;
     document.getElementById('passingTime').value = scheduleSettings.passingTime;
-    document.getElementById('lunchPeriod').value = scheduleSettings.lunchPeriod;
+
+    // Update individual lunch periods
+    if (scheduleSettings.lunchPeriodA) document.getElementById('lunchPeriodA').value = scheduleSettings.lunchPeriodA;
+    if (scheduleSettings.lunchPeriodB) document.getElementById('lunchPeriodB').value = scheduleSettings.lunchPeriodB;
+    if (scheduleSettings.lunchPeriodC) document.getElementById('lunchPeriodC').value = scheduleSettings.lunchPeriodC;
+
     document.getElementById('lunchLength').value = scheduleSettings.lunchLength;
 }
 
@@ -181,7 +198,6 @@ function generateScheduleTable() {
 
     const dayNames = ['A', 'B', 'C'];
     let currentTime = new Date(`2000-01-01T${scheduleSettings.startTime}`);
-    const lunchStartTime = new Date(currentTime.getTime() + (scheduleSettings.lunchPeriod * (scheduleSettings.periodLength + scheduleSettings.passingTime) * 60000));
 
     for (let period = 1; period <= scheduleSettings.periods; period++) {
         const row = document.createElement('tr');
@@ -190,21 +206,60 @@ function generateScheduleTable() {
         const timeCell = document.createElement('td');
         timeCell.className = 'time-cell';
 
-        if (period === scheduleSettings.lunchPeriod + 1) {
-            // Lunch period
+        // Check if this period is lunch time for any day
+        const lunchDay = dayNames.find(dayName => {
+            const lunchPeriod = scheduleSettings[`lunchPeriod${dayName}`];
+            return period === lunchPeriod + 1;
+        });
+
+        if (lunchDay) {
+            // Lunch period for this specific day
+            const lunchPeriod = scheduleSettings[`lunchPeriod${lunchDay}`];
+            const lunchStartTime = new Date(currentTime.getTime() + ((lunchPeriod - 1) * (scheduleSettings.periodLength + scheduleSettings.passingTime) * 60000));
             const lunchEndTime = new Date(lunchStartTime.getTime() + (scheduleSettings.lunchLength * 60000));
+
             timeCell.innerHTML = `
                 <div>PAWS</div>
                 <div style="font-size: 10px; opacity: 0.7;">${formatTime(lunchStartTime)} - ${formatTime(lunchEndTime)}</div>
             `;
             row.appendChild(timeCell);
 
-            // Add lunch cells for each day
+            // Add cells for each day
             dayNames.forEach(dayName => {
                 const cell = document.createElement('td');
-                cell.className = 'period-cell passing-period';
-                cell.textContent = 'PAWS';
-                cell.colSpan = '1';
+                cell.className = 'period-cell';
+
+                const lunchPeriodForDay = scheduleSettings[`lunchPeriod${dayName}`];
+                if (period === lunchPeriodForDay + 1) {
+                    // This is lunch time for this day
+                    cell.className = 'period-cell passing-period';
+                    cell.textContent = 'PAWS';
+                } else {
+                    // Regular period for this day
+                    cell.dataset.day = dayName;
+                    cell.dataset.period = period;
+
+                    // Check if this period has a class scheduled
+                    const daySchedule = schedule[dayName] || [];
+                    const scheduledClass = daySchedule.find(item => item.period === period);
+
+                    if (scheduledClass) {
+                        cell.innerHTML = `
+                            <div class="period-content">
+                                <strong>${scheduledClass.course_name}</strong><br>
+                                <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
+                                <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
+                            </div>
+                        `;
+                        cell.style.backgroundColor = getPeriodColor(period);
+                        cell.addEventListener('click', () => removeClassFromPeriod(dayName, period));
+                    } else {
+                        cell.innerHTML = '<div class="period-content">Click to add class</div>';
+                        cell.style.backgroundColor = getPeriodColor(period) + '40'; // Lighter opacity
+                        cell.addEventListener('click', () => cell.classList.add('highlight'));
+                    }
+                }
+
                 row.appendChild(cell);
             });
         } else {
@@ -213,7 +268,6 @@ function generateScheduleTable() {
             const periodEndTime = new Date(periodStartTime.getTime() + (scheduleSettings.periodLength * 60000));
 
             timeCell.innerHTML = `
-                <div class="period-label">${String.fromCharCode(64 + period)}</div>
                 <div style="font-size: 10px; opacity: 0.7;">${formatTime(periodStartTime)} - ${formatTime(periodEndTime)}</div>
             `;
             row.appendChild(timeCell);
