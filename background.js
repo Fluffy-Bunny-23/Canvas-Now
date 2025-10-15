@@ -1,7 +1,7 @@
 // background.js - Service worker for Canvas-Now extension
 
-// Canvas API configuration
-const CANVAS_API_BASE = 'https://canvas.instructure.com/api/v1';
+// Canvas API configuration - will be set dynamically
+let CANVAS_API_BASE = 'https://canvas.instructure.com/api/v1';
 
 // Store authentication token
 let authToken = null;
@@ -21,10 +21,11 @@ chrome.runtime.onInstalled.addListener(function() {
     loadAuthToken();
 });
 
-// Load auth token from storage
+// Load auth token and canvas instance from storage
 async function loadAuthToken() {
-    const result = await chrome.storage.local.get(['authToken']);
+    const result = await chrome.storage.local.get(['authToken', 'canvasInstance']);
     authToken = result.authToken;
+    CANVAS_API_BASE = `${result.canvasInstance || 'https://canvas.instructure.com'}/api/v1`;
 }
 
 // Handle messages from popup and other parts
@@ -99,8 +100,9 @@ async function authenticate() {
     // This is a placeholder - real implementation would use OAuth 2.0
     // For now, we'll assume the token is stored manually
 
-    const result = await chrome.storage.local.get(['authToken']);
+    const result = await chrome.storage.local.get(['authToken', 'canvasInstance']);
     authToken = result.authToken;
+    CANVAS_API_BASE = `${result.canvasInstance || 'https://canvas.instructure.com'}/api/v1`;
 
     if (!authToken) {
         throw new Error('No authentication token found. Please set it in the options page.');
