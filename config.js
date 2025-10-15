@@ -27,9 +27,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Ensure canvas instance has https:// prefix
+        let normalizedCanvasInstance = canvasInstance;
+        if (!normalizedCanvasInstance.startsWith('http://') && !normalizedCanvasInstance.startsWith('https://')) {
+            normalizedCanvasInstance = 'https://' + normalizedCanvasInstance;
+        }
+
         // Save settings
         chrome.storage.local.set({
-            canvasInstance: canvasInstance,
+            canvasInstance: normalizedCanvasInstance,
             authToken: authToken,
             devMode: devMode
         }, function() {
@@ -53,9 +59,15 @@ document.addEventListener('DOMContentLoaded', function() {
         showStatus('Testing connection...', '');
 
         try {
+            // Ensure canvas instance has https:// prefix for testing
+            let normalizedCanvasInstance = canvasInstance;
+            if (!normalizedCanvasInstance.startsWith('http://') && !normalizedCanvasInstance.startsWith('https://')) {
+                normalizedCanvasInstance = 'https://' + normalizedCanvasInstance;
+            }
+
             // Save temporarily for testing
             await chrome.storage.local.set({
-                canvasInstance: canvasInstance,
+                canvasInstance: normalizedCanvasInstance,
                 authToken: authToken
             });
 
