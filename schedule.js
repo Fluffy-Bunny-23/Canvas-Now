@@ -1,24 +1,85 @@
-// schedule.js - Schedule management with drag and drop functionality
+// schedule.js - Redesigned schedule management
 
 let classes = [];
 let schedule = {};
+let scheduleSettings = {};
 let draggedClass = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize
+    loadUserInfo();
     loadDevMode();
+    loadScheduleSettings();
     loadSchedule();
     loadClasses();
-    generateScheduleGrid();
+    generateScheduleTable();
 
     // Event listeners
     document.getElementById('refreshClasses').addEventListener('click', loadClasses);
+    document.getElementById('generateSchedule').addEventListener('click', generateScheduleTable);
     document.getElementById('saveSchedule').addEventListener('click', saveSchedule);
     document.getElementById('clearSchedule').addEventListener('click', clearSchedule);
+
+    // Settings event listeners
+    document.querySelectorAll('.day-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            scheduleSettings.days = parseInt(this.dataset.days);
+            generateScheduleTable();
+        });
+    });
+
+    document.getElementById('periodsPerDay').addEventListener('change', function() {
+        scheduleSettings.periods = parseInt(this.value);
+        generateScheduleTable();
+    });
+
+    document.getElementById('startTime').addEventListener('change', function() {
+        scheduleSettings.startTime = this.value;
+        generateScheduleTable();
+    });
+
+    document.getElementById('periodLength').addEventListener('input', function() {
+        scheduleSettings.periodLength = parseInt(this.value);
+        generateScheduleTable();
+    });
+
+    document.getElementById('passingTime').addEventListener('input', function() {
+        scheduleSettings.passingTime = parseInt(this.value);
+        generateScheduleTable();
+    });
+
+    document.getElementById('lunchPeriod').addEventListener('change', function() {
+        scheduleSettings.lunchPeriod = parseInt(this.value);
+        generateScheduleTable();
+    });
+
+    document.getElementById('lunchLength').addEventListener('input', function() {
+        scheduleSettings.lunchLength = parseInt(this.value);
+        generateScheduleTable();
+    });
 
     // Drag and drop setup
     setupDragAndDrop();
 });
+
+// Load user info from API
+async function loadUserInfo() {
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'getCurrentUser' });
+        if (response.error) {
+            throw new Error(response.error);
+        }
+
+        document.getElementById('studentName').textContent = response.name;
+        document.getElementById('studentDetails').textContent = 'Grade 7 • Advisor: Available in full profile';
+    } catch (error) {
+        console.error('Error loading user info:', error);
+        document.getElementById('studentName').textContent = 'Student Name';
+        document.getElementById('studentDetails').textContent = 'Grade 7 • Advisor: Available in full profile';
+    }
+}
 
 // Load classes from storage/Canvas API
 async function loadClasses() {
@@ -72,62 +133,149 @@ function renderClassList() {
     });
 }
 
-// Generate schedule grid
-function generateScheduleGrid() {
-    const container = document.getElementById('scheduleContainer');
-    container.innerHTML = '';
+// Load schedule settings
+function loadScheduleSettings() {
+    chrome.storage.local.get(['scheduleSettings'], function(result) {
+        if (result.scheduleSettings) {
+            scheduleSettings = result.scheduleSettings;
+        } else {
+            // Default settings matching the image
+            scheduleSettings = {
+                days: 3,
+                periods: 7,
+                startTime: '07:00',
+                periodLength: 55,
+                passingTime: 5,
+                lunchPeriod: 4,
+                lunchLength: 40
+            };
+        }
+        updateSettingsUI();
+    });
+}
 
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-    const startHour = 8;
-    const endHour = 20; // 8 PM
+// Update settings UI to match current settings
+function updateSettingsUI() {
+    // Update day buttons
+    document.querySelectorAll('.day-btn').forEach(btn => {
+        if (parseInt(btn.dataset.days) === scheduleSettings.days) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
 
-    for (let hour = startHour; hour < endHour; hour++) {
-        const row = document.createElement('div');
-        row.className = 'schedule-row';
-        row.style.display = 'flex';
+    // Update other settings
+    document.getElementById('periodsPerDay').value = scheduleSettings.periods;
+    document.getElementById('startTime').value = scheduleSettings.startTime;
+    document.getElementById('periodLength').value = scheduleSettings.periodLength;
+    document.getElementById('passingTime').value = scheduleSettings.passingTime;
+    document.getElementById('lunchPeriod').value = scheduleSettings.lunchPeriod;
+    document.getElementById('lunchLength').value = scheduleSettings.lunchLength;
+}
 
-        // Time column
-        const timeCol = document.createElement('div');
-        timeCol.className = 'time-column';
-        const timeLabel = document.createElement('div');
-        timeLabel.className = 'time-label';
-        timeLabel.textContent = `${hour}:00`;
-        timeCol.appendChild(timeLabel);
-        row.appendChild(timeCol);
+// Generate schedule table based on settings
+function generateScheduleTable() {
+    const tbody = document.getElementById('scheduleBody');
+    tbody.innerHTML = '';
 
-        // Day columns
-        days.forEach(day => {
-            const dayCol = document.createElement('div');
-            dayCol.className = 'day-column';
+    const dayNames = ['A', 'B', 'C'];
+    let currentTime = new Date(`2000-01-01T${scheduleSettings.startTime}`);
+    const lunchStartTime = new Date(currentTime.getTime() + (scheduleSettings.lunchPeriod * (scheduleSettings.periodLength + scheduleSettings.passingTime) * 60000));
 
-            // Create two slots per hour (30-minute intervals)
-            for (let slot = 0; slot < 2; slot++) {
-                const timeSlot = document.createElement('div');
-                timeSlot.className = 'time-slot';
-                timeSlot.dataset.day = day;
-                timeSlot.dataset.time = `${hour.toString().padStart(2, '0')}:${slot === 0 ? '00' : '30'}`;
+    for (let period = 1; period <= scheduleSettings.periods; period++) {
+        const row = document.createElement('tr');
 
-                // Check if this slot is occupied
-                const daySchedule = schedule[day] || [];
-                const occupiedClass = daySchedule.find(item => item.time === timeSlot.dataset.time);
+        // Time cell
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time-cell';
 
-                if (occupiedClass) {
-                    timeSlot.className += ' occupied';
-                    timeSlot.textContent = occupiedClass.course_name;
-                    timeSlot.title = `Click to remove ${occupiedClass.course_name}`;
-                    timeSlot.addEventListener('click', () => removeClassFromSlot(day, timeSlot.dataset.time));
+        if (period === scheduleSettings.lunchPeriod + 1) {
+            // Lunch period
+            const lunchEndTime = new Date(lunchStartTime.getTime() + (scheduleSettings.lunchLength * 60000));
+            timeCell.innerHTML = `
+                <div>PAWS</div>
+                <div style="font-size: 10px; opacity: 0.7;">${formatTime(lunchStartTime)} - ${formatTime(lunchEndTime)}</div>
+            `;
+            row.appendChild(timeCell);
+
+            // Add lunch cells for each day
+            dayNames.forEach(dayName => {
+                const cell = document.createElement('td');
+                cell.className = 'period-cell passing-period';
+                cell.textContent = 'PAWS';
+                cell.colSpan = '1';
+                row.appendChild(cell);
+            });
+        } else {
+            // Regular period
+            const periodStartTime = new Date(currentTime.getTime());
+            const periodEndTime = new Date(periodStartTime.getTime() + (scheduleSettings.periodLength * 60000));
+
+            timeCell.innerHTML = `
+                <div class="period-label">${String.fromCharCode(64 + period)}</div>
+                <div style="font-size: 10px; opacity: 0.7;">${formatTime(periodStartTime)} - ${formatTime(periodEndTime)}</div>
+            `;
+            row.appendChild(timeCell);
+
+            // Add cells for each day
+            dayNames.forEach(dayName => {
+                const cell = document.createElement('td');
+                cell.className = 'period-cell';
+                cell.dataset.day = dayName;
+                cell.dataset.period = period;
+
+                // Check if this period has a class scheduled
+                const daySchedule = schedule[dayName] || [];
+                const scheduledClass = daySchedule.find(item => item.period === period);
+
+                if (scheduledClass) {
+                    cell.innerHTML = `
+                        <div class="period-content">
+                            <strong>${scheduledClass.course_name}</strong><br>
+                            <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
+                            <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
+                        </div>
+                    `;
+                    cell.style.backgroundColor = getPeriodColor(period);
+                    cell.addEventListener('click', () => removeClassFromPeriod(dayName, period));
                 } else {
-                    timeSlot.textContent = '';
+                    cell.innerHTML = '<div class="period-content">Click to add class</div>';
+                    cell.style.backgroundColor = getPeriodColor(period) + '40'; // Lighter opacity
+                    cell.addEventListener('click', () => cell.classList.add('highlight'));
                 }
 
-                dayCol.appendChild(timeSlot);
-            }
+                row.appendChild(cell);
+            });
 
-            row.appendChild(dayCol);
-        });
+            // Move to next period
+            currentTime = new Date(periodEndTime.getTime() + (scheduleSettings.passingTime * 60000));
+        }
 
-        container.appendChild(row);
+        tbody.appendChild(row);
     }
+
+    // Save settings
+    chrome.storage.local.set({ scheduleSettings: scheduleSettings });
+}
+
+// Helper function to format time
+function formatTime(date) {
+    return date.toTimeString().slice(0, 5);
+}
+
+// Get period color based on period number
+function getPeriodColor(period) {
+    const colors = [
+        '#f8c471', // Light orange
+        '#85c1e9', // Light blue
+        '#82e0aa', // Light green
+        '#f1948a', // Light red
+        '#bb8fce', // Light purple
+        '#f7dc6f', // Light yellow
+        '#85c1e9'  // Light blue again
+    ];
+    return colors[(period - 1) % colors.length];
 }
 
 // Setup drag and drop functionality
@@ -146,17 +294,9 @@ function setupDragAndDrop() {
 
     // Drag over
     document.addEventListener('dragover', function(e) {
-        if (e.target.classList.contains('time-slot') && !e.target.classList.contains('occupied')) {
+        if (e.target.classList.contains('period-cell') && !e.target.textContent.includes('Click to add class')) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
-            e.target.style.backgroundColor = '#e9ecef';
-        }
-    });
-
-    // Drag leave
-    document.addEventListener('dragleave', function(e) {
-        if (e.target.classList.contains('time-slot')) {
-            e.target.style.backgroundColor = '';
         }
     });
 
@@ -164,59 +304,51 @@ function setupDragAndDrop() {
     document.addEventListener('drop', function(e) {
         e.preventDefault();
 
-        if (e.target.classList.contains('time-slot') && !e.target.classList.contains('occupied') && draggedClass) {
+        if (e.target.classList.contains('period-cell') && draggedClass) {
             const day = e.target.dataset.day;
-            const time = e.target.dataset.time;
+            const period = parseInt(e.target.dataset.period);
 
             // Add class to schedule
-            addClassToSchedule(day, time, draggedClass);
-
-            // Reset drag state
-            e.target.style.backgroundColor = '';
+            addClassToPeriod(day, period, draggedClass);
             draggedClass = null;
         }
     });
 }
 
-// Add class to schedule
-function addClassToSchedule(day, time, classItem) {
+// Add class to specific period
+function addClassToPeriod(day, period, classItem) {
     if (!schedule[day]) {
         schedule[day] = [];
     }
 
-    // Check for conflicts (though we prevent dropping on occupied slots)
-    const existing = schedule[day].find(item => item.time === time);
-    if (existing) {
-        return; // Slot already occupied
-    }
+    // Remove any existing class in this period
+    schedule[day] = schedule[day].filter(item => item.period !== period);
 
+    // Add new class
     schedule[day].push({
-        time: time,
+        period: period,
         course_id: classItem.id,
         course_name: classItem.name,
         url: classItem.url
     });
 
-    // Sort by time
-    schedule[day].sort((a, b) => a.time.localeCompare(b.time));
-
-    // Regenerate grid
-    generateScheduleGrid();
+    // Regenerate table
+    generateScheduleTable();
+    saveSchedule();
 }
 
-// Remove class from slot
-function removeClassFromSlot(day, time) {
+// Remove class from specific period
+function removeClassFromPeriod(day, period) {
     if (schedule[day]) {
-        schedule[day] = schedule[day].filter(item => item.time !== time);
-        generateScheduleGrid();
+        schedule[day] = schedule[day].filter(item => item.period !== period);
+        generateScheduleTable();
+        saveSchedule();
     }
 }
 
 // Save schedule to storage
 function saveSchedule() {
-    chrome.storage.local.set({ schedule: schedule }, function() {
-        showStatus('Schedule saved successfully!', 'success');
-    });
+    chrome.storage.local.set({ schedule: schedule });
 }
 
 // Load schedule from storage
@@ -232,7 +364,7 @@ function loadSchedule() {
 function clearSchedule() {
     if (confirm('Are you sure you want to clear your entire schedule?')) {
         schedule = {};
-        generateScheduleGrid();
+        generateScheduleTable();
         saveSchedule();
         showStatus('Schedule cleared.', 'success');
     }
