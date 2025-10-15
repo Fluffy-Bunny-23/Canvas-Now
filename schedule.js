@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('generateSchedule').addEventListener('click', generateScheduleTable);
     document.getElementById('saveSchedule').addEventListener('click', saveSchedule);
     document.getElementById('clearSchedule').addEventListener('click', clearSchedule);
+    document.getElementById('importPDF').addEventListener('click', importPDFFile);
 
     // Settings event listeners
     document.querySelectorAll('.day-btn').forEach(btn => {
@@ -457,6 +458,179 @@ function loadDevMode() {
             devModeSection.style.display = 'none';
         }
     });
+}
+
+// Import PDF file and parse schedule
+async function importPDFFile() {
+    const fileInput = document.getElementById('pdfImport');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showStatus('Please select a PDF file first.', 'error');
+        return;
+    }
+
+    try {
+        showStatus('Processing PDF...', '');
+
+        // Read file as array buffer
+        const arrayBuffer = await file.arrayBuffer();
+
+        // Send to background script for processing (since we need Python there)
+        const response = await chrome.runtime.sendMessage({
+            action: 'processPDF',
+            data: arrayBuffer
+        });
+
+        if (response.error) {
+            throw new Error(response.error);
+        }
+
+        // Parse the extracted text and create schedule
+        const scheduleData = parsePDFScheduleText(response.text);
+
+        if (scheduleData.length === 0) {
+            throw new Error('No schedule data found in PDF');
+        }
+
+        // Apply the parsed schedule
+        applyParsedSchedule(scheduleData);
+
+        showStatus(`Successfully imported schedule with ${scheduleData.length} classes.`, 'success');
+
+    } catch (error) {
+        console.error('Error importing PDF:', error);
+        showStatus(`Error importing PDF: ${error.message}`, 'error');
+    }
+}
+
+// Parse PDF text to extract schedule information
+function parsePDFScheduleText(text) {
+    const scheduleData = [];
+
+    // Split by day patterns
+    const dayPatterns = [
+        { pattern: /Day A \(MS\)/i, day: 'A' },
+        { pattern: /Day B \(MS\)/i, day: 'B' },
+        { pattern: /Day C \(MS\)/i, day: 'C' }
+    ];
+
+    dayPatterns.forEach(({ pattern, day }) => {
+        const dayMatch = text.match(new RegExp(pattern.source + '(.*?)(?:Day|$)', 'is'));
+        if (dayMatch) {
+            const dayContent = dayMatch[1];
+
+            // Extract classes for each period
+            const classMatches = dayContent.match(/([A-Z]\d+[a-z]?\s*-\s*[^-\n]+)(?:\s*-|$)/g);
+
+            if (classMatches) {
+                classMatches.forEach((classText, index) => {
+                    const period = index + 1;
+
+                    // Extract course code and name
+                    const parts = classText.split(' - ');
+                    if (parts.length >= 2) {
+                        const courseCode = parts[0].trim();
+                        const courseName = parts[1].trim();
+
+                        // Extract teacher and room from the next line if available
+                        const lines = dayContent.split('\n');
+                        let teacher = '';
+                        let room = '';
+
+                        // Look for teacher and room info in subsequent lines
+                        for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].includes(courseCode)) {
+                                // Check next few lines for teacher/room info
+                                for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+                                    const line = lines[j].trim();
+                                    if (line && !line.match(/^\d|AM|PM|Period|Day/i)) {
+                                        if (!teacher && line.match(/^[A-Z][a-z]+/)) {
+                                            teacher = line;
+                                        } else if (!room && line.match(/Room/i)) {
+                                            const roomMatch = line.match(/Room\s*(\d+)/i);
+                                            if (roomMatch) {
+                                                room = `Room ${roomMatch[1]}`;
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                        }
+
+                        scheduleData.push({
+                            day: day,
+                            period: period,
+                            course_code: courseCode,
+                            course_name: courseName,
+                            teacher: teacher,
+                            room: room
+                        });
+                    }
+                });
+            }
+        }
+    });
+
+    return scheduleData;
+}
+
+// Apply parsed schedule data to the current schedule
+function applyParsedSchedule(scheduleData) {
+    // Clear existing schedule
+    schedule = {};
+
+    // Group by day
+    const dayGroups = {
+        'A': [],
+        'B': [],
+        'C': []
+    };
+
+    scheduleData.forEach(item => {
+        if (dayGroups[item.day]) {
+            dayGroups[item.day].push({
+                period: item.period,
+                course_id: item.course_code,
+                course_name: item.course_name,
+                teacher: item.teacher,
+                room: item.room,
+                url: '' // PDF imports don't have URLs
+            });
+        }
+    });
+
+    // Apply to schedule object
+    Object.keys(dayGroups).forEach(day => {
+        if (dayGroups[day].length > 0) {
+            schedule[day] = dayGroups[day];
+        }
+    });
+
+    // Save and regenerate table
+    saveSchedule();
+    generateScheduleTable();
+
+    // Update student info if found in PDF
+    updateStudentInfoFromPDF(text);
+}
+
+// Extract and update student information from PDF
+function updateStudentInfoFromPDF(text) {
+    // Try to extract student name
+    const nameMatch = text.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*—\s*MS/i);
+    if (nameMatch) {
+        const fullName = nameMatch[1];
+        document.getElementById('studentName').textContent = fullName;
+
+        // Also try to extract grade
+        const gradeMatch = text.match(/Grade\s+(\d+)/i);
+        if (gradeMatch) {
+            const grade = gradeMatch[1];
+            document.getElementById('studentDetails').textContent = `Grade ${grade} • Advisor: Available in full profile`;
+        }
+    }
 }
 
 // Show status message
