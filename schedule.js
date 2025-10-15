@@ -294,9 +294,22 @@ function setupDragAndDrop() {
 
     // Drag over
     document.addEventListener('dragover', function(e) {
-        if (e.target.classList.contains('period-cell') && !e.target.textContent.includes('Click to add class')) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
+        if (e.target.classList.contains('period-cell')) {
+            const daySchedule = schedule[e.target.dataset.day] || [];
+            const existingClass = daySchedule.find(item => item.period === parseInt(e.target.dataset.period));
+
+            if (!existingClass) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                e.target.style.backgroundColor = '#e8f4fd';
+            }
+        }
+    });
+
+    // Drag leave
+    document.addEventListener('dragleave', function(e) {
+        if (e.target.classList.contains('period-cell')) {
+            e.target.style.backgroundColor = '';
         }
     });
 
@@ -308,10 +321,20 @@ function setupDragAndDrop() {
             const day = e.target.dataset.day;
             const period = parseInt(e.target.dataset.period);
 
-            // Add class to schedule
-            addClassToPeriod(day, period, draggedClass);
+            // Check if this period is already occupied
+            const daySchedule = schedule[day] || [];
+            const existingClass = daySchedule.find(item => item.period === period);
+
+            if (!existingClass) {
+                // Add class to schedule
+                addClassToPeriod(day, period, draggedClass);
+            }
+
             draggedClass = null;
         }
+
+        // Reset background color
+        e.target.style.backgroundColor = '';
     });
 }
 
