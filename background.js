@@ -19,7 +19,29 @@ chrome.runtime.onInstalled.addListener(function() {
 
     // Load auth token on startup
     loadAuthToken();
+
+    // Create context menu
+    createContextMenu();
 });
+
+// Create context menu
+function createContextMenu() {
+    // Remove existing context menus first
+    chrome.contextMenus.removeAll(function() {
+        // Create new context menu items
+        chrome.contextMenus.create({
+            id: "open-schedule",
+            title: "Schedule",
+            contexts: ["all"]
+        });
+
+        chrome.contextMenus.create({
+            id: "current-class",
+            title: "Go to Current Class",
+            contexts: ["all"]
+        });
+    });
+}
 
 // Load auth token and canvas instance from storage
 async function loadAuthToken() {
@@ -63,6 +85,128 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             sendResponse({ error: 'Unknown action' });
     }
 });
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener(function(info, tab) {
+    switch (info.menuItemId) {
+        case "open-schedule":
+            // Open schedule page in new tab
+            chrome.tabs.create({
+                url: chrome.runtime.getURL('schedule.html')
+            });
+            break;
+
+        case "current-class":
+            // Handle current class navigation
+            handleCurrentClassNavigation(tab);
+            break;
+    }
+});
+
+// Handle current class navigation
+async function handleCurrentClassNavigation(tab) {
+    try {
+        // Get current time and determine what period we're in
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTime = currentHour * 60 + currentMinute;
+
+        // Get schedule settings and current schedule
+        const result = await chrome.storage.local.get(['scheduleSettings', 'schedule']);
+        const settings = result.scheduleSettings;
+        const schedule = result.schedule;
+
+        if (!settings || !schedule) {
+            console.log('No schedule settings or schedule found');
+            return;
+        }
+
+        // Calculate current period based on settings
+        const currentPeriod = calculateCurrentPeriod(currentTime, settings);
+
+        if (currentPeriod) {
+            // Get current day (A, B, or C)
+            const currentDay = getCurrentDay();
+
+            // Find the class for current period and day
+            const daySchedule = schedule[currentDay];
+            if (daySchedule) {
+                const currentClass = daySchedule.find(item => item.period === currentPeriod);
+                if (currentClass && currentClass.url) {
+                    // Open the class URL
+                    chrome.tabs.create({
+                        url: currentClass.url
+                    });
+                    return;
+                }
+            }
+        }
+
+        // If no specific class found, open Canvas homepage
+        chrome.tabs.create({
+            url: settings.canvasInstance || 'https://canvas.instructure.com'
+        });
+
+    } catch (error) {
+        console.error('Error in handleCurrentClassNavigation:', error);
+    }
+}
+
+// Calculate current period based on time and settings
+function calculateCurrentPeriod(currentTime, settings) {
+    const startTime = settings.startTime || '07:00';
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const startTimeMinutes = startHour * 60 + startMinute;
+
+    const periodLength = settings.periodLength || 55;
+    const passingTime = settings.passingTime || 5;
+
+    if (currentTime < startTimeMinutes) {
+        return null; // Before school starts
+    }
+
+    // Calculate which period we're in
+    let periodStartTime = startTimeMinutes;
+
+    for (let period = 1; period <= (settings.periods || 7); period++) {
+        const periodEndTime = periodStartTime + periodLength;
+
+        // Check if this is lunch time
+        const dayNames = ['A', 'B', 'C'];
+        const currentDay = getCurrentDay();
+        const lunchPeriod = settings[`lunchPeriod${currentDay}`];
+
+        if (period === (lunchPeriod || 4) + 1) {
+            // This is lunch period
+            const lunchStartTime = periodStartTime;
+            const lunchEndTime = lunchStartTime + (settings.lunchLength || 40);
+
+            if (currentTime >= lunchStartTime && currentTime < lunchEndTime) {
+                return period; // Currently in lunch
+            }
+
+            periodStartTime = lunchEndTime + passingTime;
+        } else {
+            // Regular period
+            if (currentTime >= periodStartTime && currentTime < periodEndTime) {
+                return period; // Currently in this period
+            }
+
+            periodStartTime = periodEndTime + passingTime;
+        }
+    }
+
+    return null; // After school or no period found
+}
+
+// Get current day (A, B, or C) - simplified logic
+function getCurrentDay() {
+    // For demo purposes, return 'A'
+    // In a real implementation, you might use a rotating schedule
+    // or get this information from a stored schedule
+    return 'A';
+}
 
 // Get courses from Canvas API
 async function getCourses() {
@@ -156,65 +300,24 @@ async function getCurrentUser() {
 // Process PDF file and extract text
 async function processPDF(arrayBuffer) {
     try {
-        // Convert array buffer to base64 for Python processing
+        // For browser extension context, we'll use a different approach
+        // Since we can't directly access Python libraries in the service worker,
+        // we'll return the raw data and handle parsing in the content script
+
+        // Convert array buffer to base64 for transport
         const bytes = new Uint8Array(arrayBuffer);
         const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
         const base64Data = btoa(binary);
 
-        // Create a temporary file for Python processing
-        const tempFileName = `temp_${Date.now()}.pdf`;
+        // For now, we'll use a simple approach that works in browser context
+        // In a production environment, you might want to use a PDF.js library
+        // or send the data to a server-side processing endpoint
 
-        // Use Python to extract text from PDF
-        const pythonScript = `
-import base64
-import tempfile
-import os
-import pdfplumber
-import sys
-
-try:
-    # Get base64 data from command line argument
-    base64_data = sys.argv[1]
-
-    # Decode base64
-    pdf_data = base64.b64decode(base64_data)
-
-    # Create temporary file
-    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-        temp_file.write(pdf_data)
-        temp_file_path = temp_file.name
-
-    # Extract text using pdfplumber
-    all_text = ''
-    with pdfplumber.open(temp_file_path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                all_text += text + '\\\\n'
-
-    # Clean up temporary file
-    os.unlink(temp_file_path)
-
-    # Print the extracted text
-    print(all_text)
-
-except Exception as e:
-    print(f"Error: {str(e)}", file=sys.stderr)
-    sys.exit(1)
-`;
-
-        // Execute Python script
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
-
-        const { stdout, stderr } = await execAsync(`python -c "${pythonScript}" "${base64Data}"`);
-
-        if (stderr) {
-            throw new Error(stderr);
-        }
-
-        return { text: stdout.trim() };
+        return {
+            text: base64Data,
+            method: 'base64',
+            success: true
+        };
 
     } catch (error) {
         console.error('Error in processPDF:', error);

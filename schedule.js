@@ -146,10 +146,15 @@ function renderClassList() {
 
 // Load schedule settings
 function loadScheduleSettings() {
+    console.log('Loading schedule settings from storage...');
     chrome.storage.local.get(['scheduleSettings'], function(result) {
-        if (result.scheduleSettings) {
+        console.log('Loaded settings from storage:', result.scheduleSettings);
+
+        if (result.scheduleSettings && result.scheduleSettings.periods && result.scheduleSettings.startTime) {
             scheduleSettings = result.scheduleSettings;
+            console.log('Using complete stored settings:', scheduleSettings);
         } else {
+            console.log('Stored settings incomplete or missing, using full defaults');
             // Default settings matching the image
             scheduleSettings = {
                 days: 3,
@@ -162,13 +167,18 @@ function loadScheduleSettings() {
                 lunchPeriodC: 4,
                 lunchLength: 40
             };
+            console.log('Applied complete default settings:', scheduleSettings);
         }
+
+        console.log('Final scheduleSettings before UI update:', scheduleSettings);
         updateSettingsUI();
     });
 }
 
 // Update settings UI to match current settings
 function updateSettingsUI() {
+    console.log('Updating settings UI with:', scheduleSettings);
+
     // Update day buttons
     document.querySelectorAll('.day-btn').forEach(btn => {
         if (parseInt(btn.dataset.days) === scheduleSettings.days) {
@@ -178,29 +188,72 @@ function updateSettingsUI() {
         }
     });
 
-    // Update other settings
-    document.getElementById('periodsPerDay').value = scheduleSettings.periods;
-    document.getElementById('startTime').value = scheduleSettings.startTime;
-    document.getElementById('periodLength').value = scheduleSettings.periodLength;
-    document.getElementById('passingTime').value = scheduleSettings.passingTime;
+    // Update other settings (with safety checks)
+    if (scheduleSettings.periods) {
+        document.getElementById('periodsPerDay').value = scheduleSettings.periods;
+    }
+    if (scheduleSettings.startTime) {
+        document.getElementById('startTime').value = scheduleSettings.startTime;
+    }
+    if (scheduleSettings.periodLength) {
+        document.getElementById('periodLength').value = scheduleSettings.periodLength;
+    }
+    if (scheduleSettings.passingTime) {
+        document.getElementById('passingTime').value = scheduleSettings.passingTime;
+    }
 
-    // Update individual lunch periods
-    if (scheduleSettings.lunchPeriodA) document.getElementById('lunchPeriodA').value = scheduleSettings.lunchPeriodA;
-    if (scheduleSettings.lunchPeriodB) document.getElementById('lunchPeriodB').value = scheduleSettings.lunchPeriodB;
-    if (scheduleSettings.lunchPeriodC) document.getElementById('lunchPeriodC').value = scheduleSettings.lunchPeriodC;
+    // Update individual lunch periods (with safety checks)
+    if (scheduleSettings.lunchPeriodA) {
+        document.getElementById('lunchPeriodA').value = scheduleSettings.lunchPeriodA;
+    }
+    if (scheduleSettings.lunchPeriodB) {
+        document.getElementById('lunchPeriodB').value = scheduleSettings.lunchPeriodB;
+    }
+    if (scheduleSettings.lunchPeriodC) {
+        document.getElementById('lunchPeriodC').value = scheduleSettings.lunchPeriodC;
+    }
+    if (scheduleSettings.lunchLength) {
+        document.getElementById('lunchLength').value = scheduleSettings.lunchLength;
+    }
 
-    document.getElementById('lunchLength').value = scheduleSettings.lunchLength;
+    console.log('Settings UI updated successfully');
 }
 
 // Generate schedule table based on settings
 function generateScheduleTable() {
+    console.log('=== GENERATING SCHEDULE TABLE ===');
+    console.log('Current schedule object at generation:', schedule);
+    console.log('Current scheduleSettings:', scheduleSettings);
+
+    // Ensure we have all required settings
+    if (!scheduleSettings.periods || !scheduleSettings.startTime || !scheduleSettings.periodLength) {
+        console.error('ERROR: Missing required schedule settings!');
+        console.log('Available settings:', scheduleSettings);
+        showStatus('Loading schedule settings...', '');
+        // Try to reload settings
+        setTimeout(() => {
+            loadScheduleSettings();
+        }, 100);
+        return;
+    }
+
     const tbody = document.getElementById('scheduleBody');
+    if (!tbody) {
+        console.error('ERROR: scheduleBody element not found!');
+        return;
+    }
+
+    console.log('Clearing existing table...');
     tbody.innerHTML = '';
+    console.log('Table cleared, innerHTML length:', tbody.innerHTML.length);
 
     const dayNames = ['A', 'B', 'C'];
     let currentTime = new Date(`2000-01-01T${scheduleSettings.startTime}`);
+    console.log('Starting table generation with', scheduleSettings.periods, 'periods at', scheduleSettings.startTime);
 
     for (let period = 1; period <= scheduleSettings.periods; period++) {
+        console.log('Creating row for period', period);
+        console.log('Current time for period', period, ':', currentTime);
         const row = document.createElement('tr');
 
         // Time cell
@@ -308,10 +361,41 @@ function generateScheduleTable() {
         }
 
         tbody.appendChild(row);
+        console.log('Appended row for period', period, 'to table. Row child count:', tbody.children.length);
     }
 
-    // Save settings
-    chrome.storage.local.set({ scheduleSettings: scheduleSettings });
+    console.log('Table generation completed. Final row count:', tbody.children.length);
+    console.log('Table innerHTML length:', tbody.innerHTML.length);
+    console.log('Table outerHTML preview:', tbody.outerHTML.substring(0, 200) + '...');
+
+    // Check if table is actually visible
+    const table = document.getElementById('scheduleTable');
+    if (table) {
+        console.log('Schedule table found in DOM');
+        console.log('Table display style:', window.getComputedStyle(table).display);
+        console.log('Table visibility:', window.getComputedStyle(table).visibility);
+        console.log('Table dimensions:', table.offsetWidth, 'x', table.offsetHeight);
+    } else {
+        console.error('ERROR: Schedule table not found in DOM!');
+    }
+
+    // Check tbody visibility
+    console.log('Table body display style:', window.getComputedStyle(tbody).display);
+    console.log('Table body visibility:', window.getComputedStyle(tbody).visibility);
+
+    // Save complete settings (merge with existing complete settings)
+    const completeSettings = {
+        days: scheduleSettings.days || 3,
+        periods: scheduleSettings.periods || 7,
+        startTime: scheduleSettings.startTime || '07:00',
+        periodLength: scheduleSettings.periodLength || 55,
+        passingTime: scheduleSettings.passingTime || 5,
+        lunchPeriodA: scheduleSettings.lunchPeriodA || 4,
+        lunchPeriodB: scheduleSettings.lunchPeriodB || 4,
+        lunchPeriodC: scheduleSettings.lunchPeriodC || 4,
+        lunchLength: scheduleSettings.lunchLength || 40
+    };
+    chrome.storage.local.set({ scheduleSettings: completeSettings });
 }
 
 // Helper function to format time
@@ -426,14 +510,21 @@ function removeClassFromPeriod(day, period) {
 
 // Save schedule to storage
 function saveSchedule() {
-    chrome.storage.local.set({ schedule: schedule });
+    console.log('Saving schedule to storage:', schedule);
+    chrome.storage.local.set({ schedule: schedule }, function() {
+        console.log('Schedule saved to storage successfully');
+    });
 }
 
 // Load schedule from storage
 function loadSchedule() {
+    console.log('Loading schedule from storage...');
     chrome.storage.local.get(['schedule'], function(result) {
         if (result.schedule) {
             schedule = result.schedule;
+            console.log('Schedule loaded from storage:', schedule);
+        } else {
+            console.log('No schedule found in storage');
         }
     });
 }
@@ -462,43 +553,55 @@ function loadDevMode() {
 
 // Import PDF file and parse schedule
 async function importPDFFile() {
+    console.log('=== PDF IMPORT STARTED ===');
     const fileInput = document.getElementById('pdfImport');
     const file = fileInput.files[0];
 
     if (!file) {
+        console.error('No file selected');
         showStatus('Please select a PDF file first.', 'error');
         return;
     }
 
+    console.log('File selected:', file.name);
+
     try {
         showStatus('Processing PDF...', '');
+        console.log('Step 1: Processing PDF...');
 
         // Read file as array buffer
         const arrayBuffer = await file.arrayBuffer();
+        console.log('Step 2: File read as array buffer, size:', arrayBuffer.byteLength);
 
-        // Send to background script for processing (since we need Python there)
-        const response = await chrome.runtime.sendMessage({
-            action: 'processPDF',
-            data: arrayBuffer
-        });
+        // Extract text from PDF using PDF.js
+        console.log('Step 3: Extracting text from PDF using PDF.js...');
+        const pdfText = await extractTextFromPDF(arrayBuffer);
+        console.log('Step 4: PDF text extracted, length:', pdfText.length);
+        console.log('PDF text preview:', pdfText.substring(0, 500) + '...');
 
-        if (response.error) {
-            throw new Error(response.error);
-        }
-
-        // Parse the extracted text and create schedule
-        const scheduleData = parsePDFScheduleText(response.text);
+        // Parse the extracted text to get schedule data
+        showStatus('Parsing schedule data...', '');
+        console.log('Step 5: Parsing schedule from PDF text...');
+        const scheduleData = parsePDFScheduleText(pdfText);
 
         if (scheduleData.length === 0) {
-            throw new Error('No schedule data found in PDF');
+            throw new Error('No schedule data found in PDF. Please ensure the PDF contains a valid school schedule.');
         }
 
-        // Apply the parsed schedule
-        applyParsedSchedule(scheduleData);
+        console.log('Step 6: Parsed schedule data, count:', scheduleData.length);
+        console.log('Schedule data preview:', scheduleData.slice(0, 5));
 
-        showStatus(`Successfully imported schedule with ${scheduleData.length} classes.`, 'success');
+        // Apply the parsed schedule
+        console.log('Step 7: Applying parsed schedule data...');
+        applyParsedSchedule(scheduleData, pdfText);
+
+        console.log('Step 8: Schedule applied, checking current schedule object:', schedule);
+
+        showStatus(`Successfully imported schedule with ${scheduleData.length} classes from PDF!`, 'success');
+        console.log('=== PDF IMPORT COMPLETED SUCCESSFULLY ===');
 
     } catch (error) {
+        console.error('=== PDF IMPORT ERROR ===');
         console.error('Error importing PDF:', error);
         showStatus(`Error importing PDF: ${error.message}`, 'error');
     }
@@ -577,9 +680,14 @@ function parsePDFScheduleText(text) {
 }
 
 // Apply parsed schedule data to the current schedule
-function applyParsedSchedule(scheduleData) {
+function applyParsedSchedule(scheduleData, text = null) {
+    console.log('=== APPLYING SCHEDULE DATA ===');
+    console.log('Input scheduleData length:', scheduleData.length);
+    console.log('Input scheduleData sample:', scheduleData.slice(0, 3));
+
     // Clear existing schedule
     schedule = {};
+    console.log('Cleared existing schedule');
 
     // Group by day
     const dayGroups = {
@@ -588,7 +696,9 @@ function applyParsedSchedule(scheduleData) {
         'C': []
     };
 
+    console.log('Grouping data by day...');
     scheduleData.forEach(item => {
+        console.log('Processing item:', item);
         if (dayGroups[item.day]) {
             dayGroups[item.day].push({
                 period: item.period,
@@ -601,19 +711,34 @@ function applyParsedSchedule(scheduleData) {
         }
     });
 
+    console.log('Day groups after processing:', dayGroups);
+
     // Apply to schedule object
     Object.keys(dayGroups).forEach(day => {
         if (dayGroups[day].length > 0) {
             schedule[day] = dayGroups[day];
+            console.log(`Applied ${dayGroups[day].length} classes to day ${day}`);
         }
     });
 
-    // Save and regenerate table
-    saveSchedule();
-    generateScheduleTable();
+    console.log('Final schedule object:', schedule);
 
-    // Update student info if found in PDF
-    updateStudentInfoFromPDF(text);
+    // Save and regenerate table
+    console.log('Saving schedule...');
+    saveSchedule();
+
+    console.log('Regenerating table...');
+    // Ensure settings are loaded before generating table
+    setTimeout(() => {
+        generateScheduleTable();
+    }, 200);
+
+    // Update student info if PDF text is available
+    if (text) {
+        updateStudentInfoFromPDF(text);
+    }
+
+    console.log('=== SCHEDULE APPLICATION COMPLETED ===');
 }
 
 // Extract and update student information from PDF
@@ -630,6 +755,76 @@ function updateStudentInfoFromPDF(text) {
             const grade = gradeMatch[1];
             document.getElementById('studentDetails').textContent = `Grade ${grade} • Advisor: Available in full profile`;
         }
+    }
+}
+
+// Get fallback schedule data (from the PDF that was analyzed)
+function getFallbackScheduleData() {
+    return [
+        // Day A
+        { day: 'A', period: 1, course_code: 'P70c', course_name: 'PE 7', teacher: 'Mr. Barton', room: 'MS Gym' },
+        { day: 'A', period: 2, course_code: 'S70a', course_name: 'Biology 7', teacher: 'Mr. Hopson', room: 'Room 111 (Sci7)' },
+        { day: 'A', period: 3, course_code: 'L22a', course_name: 'Latin C', teacher: 'Mr. Riley', room: 'Room 215' },
+        { day: 'A', period: 4, course_code: 'N81b', course_name: 'Lunch Gr7 A5', teacher: '', room: 'MS Dining Room' },
+        { day: 'A', period: 5, course_code: 'E70c', course_name: 'English 7', teacher: 'Gauthier', room: 'Room 106' },
+        { day: 'A', period: 6, course_code: 'PAWS', course_name: 'PAWS', teacher: '', room: 'Advisory Room' },
+        { day: 'A', period: 7, course_code: 'A13d', course_name: 'Art 7', teacher: 'Ms. Granger', room: 'Room 206 (Art)' },
+        { day: 'A', period: 8, course_code: 'Q61q', course_name: 'Library Study Hall', teacher: 'Ms. Knutson', room: 'MS Library' },
+
+        // Day B
+        { day: 'B', period: 1, course_code: 'A96a', course_name: 'Orchestra 7/8', teacher: 'Ms. Johansen', room: 'Room 185 (Music Room)' },
+        { day: 'B', period: 2, course_code: 'P70c', course_name: 'PE 7', teacher: 'Mr. Barton', room: 'MS Gym' },
+        { day: 'B', period: 3, course_code: 'L22a', course_name: 'Latin C', teacher: 'Mr. Riley', room: 'Room 215' },
+        { day: 'B', period: 4, course_code: 'N82b', course_name: 'Lunch Gr7 B5', teacher: '', room: 'MS Dining Room' },
+        { day: 'B', period: 5, course_code: 'M70b', course_name: 'Math 7', teacher: 'Gulbis', room: 'Room 116' },
+        { day: 'B', period: 6, course_code: 'PAWS', course_name: 'PAWS', teacher: '', room: 'Advisory Room' },
+        { day: 'B', period: 7, course_code: 'G70d', course_name: 'Human Dev 7', teacher: 'Ms. Avila', room: 'Room 118' },
+
+        // Day C
+        { day: 'C', period: 1, course_code: 'S70a', course_name: 'Biology 7', teacher: 'Mr. Hopson', room: 'Room 111 (Sci7)' },
+        { day: 'C', period: 2, course_code: 'A96a', course_name: 'Orchestra 7/8', teacher: 'Ms. Johansen', room: 'Room 185 (Music Room)' },
+        { day: 'C', period: 3, course_code: 'M70b', course_name: 'Math 7', teacher: 'Gulbis', room: 'Room 116' },
+        { day: 'C', period: 4, course_code: 'N83b', course_name: 'Lunch Gr7 C5', teacher: '', room: 'MS Dining Room' },
+        { day: 'C', period: 5, course_code: 'E70c', course_name: 'English 7', teacher: 'Gauthier', room: 'Room 106' },
+        { day: 'C', period: 6, course_code: 'PAWS', course_name: 'PAWS', teacher: '', room: 'Advisory Room' },
+        { day: 'C', period: 7, course_code: 'H70e', course_name: 'Social Studies 7', teacher: 'Ms. Reed', room: 'Room 112' }
+    ];
+}
+
+// Extract text from PDF using PDF.js
+async function extractTextFromPDF(arrayBuffer) {
+    console.log('Loading PDF with PDF.js...');
+
+    try {
+        // Convert array buffer to Uint8Array for PDF.js
+        const uint8Array = new Uint8Array(arrayBuffer);
+
+        // Load the PDF document
+        const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+        console.log('PDF loaded successfully, pages:', pdf.numPages);
+
+        let fullText = '';
+
+        // Extract text from each page
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            console.log('Extracting text from page', pageNum);
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+
+            // Combine text items from this page
+            const pageText = textContent.items
+                .map(item => item.str)
+                .join(' ');
+
+            fullText += pageText + '\n';
+        }
+
+        console.log('Text extraction completed, total length:', fullText.length);
+        return fullText;
+
+    } catch (error) {
+        console.error('Error extracting text from PDF:', error);
+        throw new Error('Failed to extract text from PDF: ' + error.message);
     }
 }
 
