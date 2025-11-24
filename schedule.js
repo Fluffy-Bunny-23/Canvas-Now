@@ -585,7 +585,7 @@ async function importPDFFile() {
         const scheduleData = parsePDFScheduleText(pdfText);
 
         if (scheduleData.length === 0) {
-            throw new Error('No schedule data found in PDF. Please ensure the PDF contains a valid school schedule.');
+            throw new Error('No schedule data found in PDF. Please ensure the PDF contains a valid school schedule with Day A, Day B, and Day C sections.');
         }
 
         console.log('Step 6: Parsed schedule data, count:', scheduleData.length);
@@ -758,42 +758,17 @@ function updateStudentInfoFromPDF(text) {
     }
 }
 
-// Get fallback schedule data (from the PDF that was analyzed)
-function getFallbackScheduleData() {
-    return [
-        // Day A
-        { day: 'A', period: 1, course_code: 'P70c', course_name: 'PE 7', teacher: 'Mr. Barton', room: 'MS Gym' },
-        { day: 'A', period: 2, course_code: 'S70a', course_name: 'Biology 7', teacher: 'Mr. Hopson', room: 'Room 111 (Sci7)' },
-        { day: 'A', period: 3, course_code: 'L22a', course_name: 'Latin C', teacher: 'Mr. Riley', room: 'Room 215' },
-        { day: 'A', period: 4, course_code: 'N81b', course_name: 'Lunch Gr7 A5', teacher: '', room: 'MS Dining Room' },
-        { day: 'A', period: 5, course_code: 'E70c', course_name: 'English 7', teacher: 'Gauthier', room: 'Room 106' },
-        { day: 'A', period: 6, course_code: 'PAWS', course_name: 'PAWS', teacher: '', room: 'Advisory Room' },
-        { day: 'A', period: 7, course_code: 'A13d', course_name: 'Art 7', teacher: 'Ms. Granger', room: 'Room 206 (Art)' },
-        { day: 'A', period: 8, course_code: 'Q61q', course_name: 'Library Study Hall', teacher: 'Ms. Knutson', room: 'MS Library' },
 
-        // Day B
-        { day: 'B', period: 1, course_code: 'A96a', course_name: 'Orchestra 7/8', teacher: 'Ms. Johansen', room: 'Room 185 (Music Room)' },
-        { day: 'B', period: 2, course_code: 'P70c', course_name: 'PE 7', teacher: 'Mr. Barton', room: 'MS Gym' },
-        { day: 'B', period: 3, course_code: 'L22a', course_name: 'Latin C', teacher: 'Mr. Riley', room: 'Room 215' },
-        { day: 'B', period: 4, course_code: 'N82b', course_name: 'Lunch Gr7 B5', teacher: '', room: 'MS Dining Room' },
-        { day: 'B', period: 5, course_code: 'M70b', course_name: 'Math 7', teacher: 'Gulbis', room: 'Room 116' },
-        { day: 'B', period: 6, course_code: 'PAWS', course_name: 'PAWS', teacher: '', room: 'Advisory Room' },
-        { day: 'B', period: 7, course_code: 'G70d', course_name: 'Human Dev 7', teacher: 'Ms. Avila', room: 'Room 118' },
-
-        // Day C
-        { day: 'C', period: 1, course_code: 'S70a', course_name: 'Biology 7', teacher: 'Mr. Hopson', room: 'Room 111 (Sci7)' },
-        { day: 'C', period: 2, course_code: 'A96a', course_name: 'Orchestra 7/8', teacher: 'Ms. Johansen', room: 'Room 185 (Music Room)' },
-        { day: 'C', period: 3, course_code: 'M70b', course_name: 'Math 7', teacher: 'Gulbis', room: 'Room 116' },
-        { day: 'C', period: 4, course_code: 'N83b', course_name: 'Lunch Gr7 C5', teacher: '', room: 'MS Dining Room' },
-        { day: 'C', period: 5, course_code: 'E70c', course_name: 'English 7', teacher: 'Gauthier', room: 'Room 106' },
-        { day: 'C', period: 6, course_code: 'PAWS', course_name: 'PAWS', teacher: '', room: 'Advisory Room' },
-        { day: 'C', period: 7, course_code: 'H70e', course_name: 'Social Studies 7', teacher: 'Ms. Reed', room: 'Room 112' }
-    ];
-}
 
 // Extract text from PDF using PDF.js
 async function extractTextFromPDF(arrayBuffer) {
     console.log('Loading PDF with PDF.js...');
+
+    // Check if PDF.js is available
+    if (typeof pdfjsLib === 'undefined') {
+        console.error('PDF.js library not loaded');
+        throw new Error('PDF.js library not available. Please refresh the page and try again.');
+    }
 
     try {
         // Convert array buffer to Uint8Array for PDF.js
