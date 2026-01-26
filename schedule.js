@@ -298,9 +298,12 @@ function generateScheduleTable() {
                     const scheduledClass = daySchedule.find(item => item.period === period);
 
                     if (scheduledClass) {
+                        const courseTitle = scheduledClass.course_code 
+                            ? `${scheduledClass.course_code} - ${scheduledClass.course_name}`
+                            : scheduledClass.course_name;
                         cell.innerHTML = `
                             <div class="period-content">
-                                <strong>${scheduledClass.course_code || ''} - ${scheduledClass.course_name}</strong><br>
+                                <strong>${courseTitle}</strong><br>
                                 <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
                                 <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                             </div>
@@ -338,9 +341,12 @@ function generateScheduleTable() {
                 const scheduledClass = daySchedule.find(item => item.period === period);
 
                 if (scheduledClass) {
+                    const courseTitle = scheduledClass.course_code 
+                        ? `${scheduledClass.course_code} - ${scheduledClass.course_name}`
+                        : scheduledClass.course_name;
                     cell.innerHTML = `
                         <div class="period-content">
-                            <strong>${scheduledClass.course_code || ''} - ${scheduledClass.course_name}</strong><br>
+                            <strong>${courseTitle}</strong><br>
                             <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
                             <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                         </div>
@@ -706,13 +712,8 @@ function parsePDFScheduleText(text) {
 
 // Apply parsed schedule data to the current schedule
 function applyParsedSchedule(scheduleData, text = null) {
-    console.log('=== APPLYING SCHEDULE DATA ===');
-    console.log('Input scheduleData length:', scheduleData.length);
-    console.log('Input scheduleData sample:', scheduleData.slice(0, 3));
-
     // Clear existing schedule
     schedule = {};
-    console.log('Cleared existing schedule');
 
     // Group by day
     const dayGroups = {
@@ -721,9 +722,7 @@ function applyParsedSchedule(scheduleData, text = null) {
         'C': []
     };
 
-    console.log('Grouping data by day...');
     scheduleData.forEach(item => {
-        console.log('Processing item:', item);
         if (dayGroups[item.day]) {
             dayGroups[item.day].push({
                 period: item.period,
@@ -736,23 +735,16 @@ function applyParsedSchedule(scheduleData, text = null) {
         }
     });
 
-    console.log('Day groups after processing:', dayGroups);
-
     // Apply to schedule object
     Object.keys(dayGroups).forEach(day => {
         if (dayGroups[day].length > 0) {
             schedule[day] = dayGroups[day];
-            console.log(`Applied ${dayGroups[day].length} classes to day ${day}`);
         }
     });
 
-    console.log('Final schedule object:', schedule);
-
     // Save and regenerate table
-    console.log('Saving schedule...');
     saveSchedule();
 
-    console.log('Regenerating table...');
     // Ensure settings are loaded before generating table
     setTimeout(() => {
         generateScheduleTable();
@@ -762,8 +754,6 @@ function applyParsedSchedule(scheduleData, text = null) {
     if (text) {
         updateStudentInfoFromPDF(text);
     }
-
-    console.log('=== SCHEDULE APPLICATION COMPLETED ===');
 }
 
 // Extract and update student information from PDF
