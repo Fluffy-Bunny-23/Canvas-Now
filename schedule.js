@@ -4,11 +4,13 @@ let classes = [];
 let schedule = {};
 let scheduleSettings = {};
 let draggedClass = null;
+let classColors = {}; // Store persistent colors for each class
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     loadUserInfo();
     loadDevMode();
+    loadClassColors();
     loadScheduleSettings();
     loadSchedule();
     loadClasses();
@@ -219,6 +221,40 @@ function updateSettingsUI() {
     console.log('Settings UI updated successfully');
 }
 
+// Load class colors from storage
+function loadClassColors() {
+    chrome.storage.local.get(['classColors'], function(result) {
+        if (result.classColors) {
+            classColors = result.classColors;
+        }
+    });
+}
+
+// Save class colors to storage
+function saveClassColors() {
+    chrome.storage.local.set({ classColors: classColors });
+}
+
+// Get or generate a color for a specific class
+function getClassColor(classId) {
+    // If color already exists for this class, return it
+    if (classColors[classId]) {
+        return classColors[classId];
+    }
+    
+    // Generate a new random pastel color for this class
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 45 + Math.floor(Math.random() * 30); // 45-75%
+    const lightness = 70 + Math.floor(Math.random() * 10);  // 70-80%
+    const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    
+    // Store it for future use
+    classColors[classId] = color;
+    saveClassColors();
+    
+    return color;
+}
+
 // Generate schedule table based on settings
 function generateScheduleTable() {
     console.log('=== GENERATING SCHEDULE TABLE ===');
@@ -308,7 +344,9 @@ function generateScheduleTable() {
                                 <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                             </div>
                         `;
-                        cell.style.backgroundColor = getPeriodColor(period);
+                        // Use class-specific color instead of period color
+                        const classId = scheduledClass.course_id || scheduledClass.course_code || scheduledClass.course_name;
+                        cell.style.backgroundColor = getClassColor(classId);
                         cell.addEventListener('click', () => removeClassFromPeriod(dayName, period));
                     } else {
                         cell.innerHTML = '<div class="period-content">Click to add class</div>';
@@ -351,7 +389,9 @@ function generateScheduleTable() {
                             <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                         </div>
                     `;
-                    cell.style.backgroundColor = getPeriodColor(period);
+                    // Use class-specific color instead of period color
+                    const classId = scheduledClass.course_id || scheduledClass.course_code || scheduledClass.course_name;
+                    cell.style.backgroundColor = getClassColor(classId);
                     cell.addEventListener('click', () => removeClassFromPeriod(dayName, period));
                 } else {
                     cell.innerHTML = '<div class="period-content">Click to add class</div>';
