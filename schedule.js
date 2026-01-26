@@ -811,10 +811,11 @@ async function extractTextFromPDF(arrayBuffer) {
             const page = await pdf.getPage(pageNum);
             const textContent = await page.getTextContent();
 
-            // Combine text items from this page
+            // Combine text items from this page, preserving structure
+            // Each item is on its own line to maintain the PDF structure
             const pageText = textContent.items
                 .map(item => item.str)
-                .join(' ');
+                .join('\n');
 
             fullText += pageText + '\n';
         }
