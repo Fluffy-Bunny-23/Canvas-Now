@@ -591,7 +591,9 @@ async function importPDFFile() {
         // Parse the extracted text to get schedule data
         showStatus('Parsing schedule data...', '');
         console.log('Step 5: Parsing schedule from PDF text...');
-        const scheduleData = parsePDFScheduleText(pdfText);
+        const parseResult = parsePDFScheduleText(pdfText);
+        const scheduleData = parseResult.scheduleData;
+        const lunchPeriods = parseResult.lunchPeriods;
 
         if (scheduleData.length === 0) {
             throw new Error('No schedule data found in PDF. Please ensure the PDF contains a valid school schedule with Day A, Day B, and Day C sections.');
@@ -599,10 +601,11 @@ async function importPDFFile() {
 
         console.log('Step 6: Parsed schedule data, count:', scheduleData.length);
         console.log('Schedule data preview:', scheduleData.slice(0, 5));
+        console.log('Lunch periods detected:', lunchPeriods);
 
-        // Apply the parsed schedule
+        // Apply the parsed schedule with lunch period information
         console.log('Step 7: Applying parsed schedule data...');
-        applyParsedSchedule(scheduleData, pdfText);
+        applyParsedSchedule(scheduleData, lunchPeriods, pdfText);
 
         console.log('Step 8: Schedule applied, checking current schedule object:', schedule);
 
@@ -620,6 +623,7 @@ async function importPDFFile() {
 function parsePDFScheduleText(text) {
     console.log('=== PARSING PDF TEXT ===');
     const scheduleData = [];
+    const lunchPeriods = {}; // Track which period has lunch for each day
     
     // Split text into lines for easier processing
     const allLines = text.split('\n').map(line => line.trim());
@@ -689,8 +693,12 @@ function parsePDFScheduleText(text) {
                             }
                         }
                         
-                        // Skip lunch periods
-                        if (!courseName.match(/Lunch/i)) {
+                        // Check if this is a lunch period and record it
+                        if (courseName.match(/Lunch/i)) {
+                            console.log(`  Day ${day} has Lunch in Period ${periodNum}`);
+                            lunchPeriods[day] = periodNum;
+                            // Don't add lunch to scheduleData, but do track it
+                        } else {
                             console.log(`  Day ${day} Period ${periodNum}: ${courseName} (${courseCode}) - ${teacher} - ${room}`);
                             
                             scheduleData.push({
@@ -710,11 +718,14 @@ function parsePDFScheduleText(text) {
     });
     
     console.log(`=== PARSED ${scheduleData.length} TOTAL CLASSES ===`);
-    return scheduleData;
+    console.log('Detected lunch periods:', lunchPeriods);
+    
+    // Return both schedule data and lunch period info
+    return { scheduleData, lunchPeriods };
 }
 
 // Apply parsed schedule data to the current schedule
-function applyParsedSchedule(scheduleData, text = null) {
+function applyParsedSchedule(scheduleData, lunchPeriods, text = null) {
     // Clear existing schedule
     schedule = {};
 
@@ -744,6 +755,28 @@ function applyParsedSchedule(scheduleData, text = null) {
             schedule[day] = dayGroups[day];
         }
     });
+
+    // Update schedule settings with detected lunch periods
+    if (lunchPeriods && Object.keys(lunchPeriods).length > 0) {
+        console.log('Updating lunch period settings from PDF:', lunchPeriods);
+        
+        // Update the schedule settings with lunch periods from PDF
+        if (lunchPeriods.A) {
+            scheduleSettings.lunchPeriodA = lunchPeriods.A;
+            console.log(`Set Day A lunch to period ${lunchPeriods.A}`);
+        }
+        if (lunchPeriods.B) {
+            scheduleSettings.lunchPeriodB = lunchPeriods.B;
+            console.log(`Set Day B lunch to period ${lunchPeriods.B}`);
+        }
+        if (lunchPeriods.C) {
+            scheduleSettings.lunchPeriodC = lunchPeriods.C;
+            console.log(`Set Day C lunch to period ${lunchPeriods.C}`);
+        }
+        
+        // Save the updated settings
+        saveScheduleSettings();
+    }
 
     // Save and regenerate table
     saveSchedule();
