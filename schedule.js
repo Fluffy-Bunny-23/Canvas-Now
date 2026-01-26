@@ -300,7 +300,7 @@ function generateScheduleTable() {
                     if (scheduledClass) {
                         cell.innerHTML = `
                             <div class="period-content">
-                                <strong>${scheduledClass.course_name}</strong><br>
+                                <strong>${scheduledClass.course_code || ''} - ${scheduledClass.course_name}</strong><br>
                                 <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
                                 <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                             </div>
@@ -340,7 +340,7 @@ function generateScheduleTable() {
                 if (scheduledClass) {
                     cell.innerHTML = `
                         <div class="period-content">
-                            <strong>${scheduledClass.course_name}</strong><br>
+                            <strong>${scheduledClass.course_code || ''} - ${scheduledClass.course_name}</strong><br>
                             <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
                             <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                         </div>
