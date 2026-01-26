@@ -609,73 +609,98 @@ async function importPDFFile() {
 
 // Parse PDF text to extract schedule information
 function parsePDFScheduleText(text) {
+    console.log('=== PARSING PDF TEXT ===');
     const scheduleData = [];
-
-    // Split by day patterns
+    
+    // Split text into lines for easier processing
+    const allLines = text.split('\n').map(line => line.trim());
+    
+    // The PDF has schedules in columns with period identifiers like "Period ABC A1", "Period ABC B2", etc.
+    // Format is:
+    // Line i-1: Course Code - Course Name
+    // Line i: Time (Period ABC Xn)
+    // Line i+1: Teacher - Room
+    
     const dayPatterns = [
-        { pattern: /Day A \(MS\)/i, day: 'A' },
-        { pattern: /Day B \(MS\)/i, day: 'B' },
-        { pattern: /Day C \(MS\)/i, day: 'C' }
+        { pattern: /Period ABC A(\d+)/i, day: 'A' },
+        { pattern: /Period ABC B(\d+)/i, day: 'B' },
+        { pattern: /Period ABC C(\d+)/i, day: 'C' }
     ];
-
+    
     dayPatterns.forEach(({ pattern, day }) => {
-        const dayMatch = text.match(new RegExp(pattern.source + '(.*?)(?:Day|$)', 'is'));
-        if (dayMatch) {
-            const dayContent = dayMatch[1];
-
-            // Extract classes for each period
-            const classMatches = dayContent.match(/([A-Z]\d+[a-z]?\s*-\s*[^-\n]+)(?:\s*-|$)/g);
-
-            if (classMatches) {
-                classMatches.forEach((classText, index) => {
-                    const period = index + 1;
-
-                    // Extract course code and name
-                    const parts = classText.split(' - ');
-                    if (parts.length >= 2) {
-                        const courseCode = parts[0].trim();
-                        const courseName = parts[1].trim();
-
-                        // Extract teacher and room from the next line if available
-                        const lines = dayContent.split('\n');
+        console.log(`Parsing Day ${day}...`);
+        let processedPeriods = new Set();
+        
+        for (let i = 0; i < allLines.length; i++) {
+            const line = allLines[i];
+            
+            // Skip empty lines
+            if (!line) continue;
+            
+            // Look for lines with our day's period pattern
+            const periodMatch = line.match(pattern);
+            if (periodMatch) {
+                const periodNum = parseInt(periodMatch[1]);
+                
+                // Skip if we've already processed this period for this day
+                if (processedPeriods.has(periodNum)) continue;
+                processedPeriods.add(periodNum);
+                
+                // Look back for course line (should be previous line)
+                if (i >= 1) {
+                    const courseLine = allLines[i - 1];
+                    
+                    // Check if this is a course line (CourseCode - CourseName)
+                    const courseMatch = courseLine.match(/^([A-Z]\d+[a-z]?)\s*-\s*(.+)$/);
+                    
+                    if (courseMatch) {
+                        const courseCode = courseMatch[1];
+                        const courseName = courseMatch[2];
+                        
+                        // Extract time from current line
+                        const timeMatch = line.match(/(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})/);
+                        const timeInfo = timeMatch ? timeMatch[1] : '';
+                        
+                        // Look ahead for teacher/room (should be on next line)
                         let teacher = '';
                         let room = '';
-
-                        // Look for teacher and room info in subsequent lines
-                        for (let i = 0; i < lines.length; i++) {
-                            if (lines[i].includes(courseCode)) {
-                                // Check next few lines for teacher/room info
-                                for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
-                                    const line = lines[j].trim();
-                                    if (line && !line.match(/^\d|AM|PM|Period|Day/i)) {
-                                        if (!teacher && line.match(/^[A-Z][a-z]+/)) {
-                                            teacher = line;
-                                        } else if (!room && line.match(/Room/i)) {
-                                            const roomMatch = line.match(/Room\s*(\d+)/i);
-                                            if (roomMatch) {
-                                                room = `Room ${roomMatch[1]}`;
-                                            }
-                                        }
-                                    }
+                        
+                        if (i + 1 < allLines.length) {
+                            const teacherLine = allLines[i + 1];
+                            // Skip lines that are times, empty, PAWS, or other course codes
+                            if (teacherLine && 
+                                !teacherLine.match(/^\d{1,2}:\d{2}/) && 
+                                teacherLine !== 'PAWS' &&
+                                !teacherLine.match(/^[A-Z]\d+[a-z]?\s*-/)) {
+                                const teacherMatch = teacherLine.match(/^([^-]+?)(?:\s*-\s*(.+))?$/);
+                                if (teacherMatch) {
+                                    teacher = teacherMatch[1].trim();
+                                    room = teacherMatch[2] ? teacherMatch[2].trim() : '';
                                 }
-                                break;
                             }
                         }
-
-                        scheduleData.push({
-                            day: day,
-                            period: period,
-                            course_code: courseCode,
-                            course_name: courseName,
-                            teacher: teacher,
-                            room: room
-                        });
+                        
+                        // Skip lunch periods
+                        if (!courseName.match(/Lunch/i)) {
+                            console.log(`  Day ${day} Period ${periodNum}: ${courseName} (${courseCode}) - ${teacher} - ${room}`);
+                            
+                            scheduleData.push({
+                                day: day,
+                                period: periodNum,
+                                course_code: courseCode,
+                                course_name: courseName,
+                                teacher: teacher,
+                                room: room,
+                                time: timeInfo
+                            });
+                        }
                     }
-                });
+                }
             }
         }
     });
-
+    
+    console.log(`=== PARSED ${scheduleData.length} TOTAL CLASSES ===`);
     return scheduleData;
 }
 
