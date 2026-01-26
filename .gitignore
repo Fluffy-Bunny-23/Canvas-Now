@@ -9,3 +9,8 @@ build/
 *~
 .vscode/
 .idea/
+eslint.config.js
+test-*.js
+test-*.mjs
+run-all-tests.sh
+TEST-RESULTS.md
