@@ -409,18 +409,21 @@ function formatTime(date) {
     return date.toTimeString().slice(0, 5);
 }
 
-// Get period color based on period number
+// Get period color based on period number - uses random vibrant colors like the PDF
 function getPeriodColor(period) {
-    const colors = [
-        '#f8c471', // Light orange
-        '#85c1e9', // Light blue
-        '#82e0aa', // Light green
-        '#f1948a', // Light red
-        '#bb8fce', // Light purple
-        '#f7dc6f', // Light yellow
-        '#85c1e9'  // Light blue again
-    ];
-    return colors[(period - 1) % colors.length];
+    // Generate consistent random colors based on period number (seed-based randomization)
+    const seed = period * 12345;
+    const random = () => {
+        const x = Math.sin(seed + period * 100) * 10000;
+        return x - Math.floor(x);
+    };
+    
+    // Generate pastel colors similar to the PDF
+    const hue = Math.floor(random() * 360);
+    const saturation = 45 + Math.floor(random() * 25); // 45-70%
+    const lightness = 70 + Math.floor(random() * 10); // 70-80%
+    
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
 // Setup drag and drop functionality
