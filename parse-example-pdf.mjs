@@ -1,8 +1,12 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Read and parse the example_schedule.pdf
-const pdfPath = '/home/runner/work/Canvas-Now/Canvas-Now/example_schedule.pdf';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const pdfPath = path.join(__dirname, 'example_schedule.pdf');
 const data = new Uint8Array(fs.readFileSync(pdfPath));
 
 const loadingTask = pdfjsLib.getDocument({data});
@@ -18,123 +22,77 @@ const allLines = allText.split('\n').filter(line => line.trim());
 const scheduleData = [];
 const lunchPeriods = {};
 
+// Look for period markers for Day A, B, and C using a single parsing path
+const dayPatterns = ['A', 'B', 'C'];
+const processedPeriods = { 'A': new Set(), 'B': new Set(), 'C': new Set() };
+
 for (let i = 0; i < allLines.length; i++) {
     const line = allLines[i];
     
-    // Look for period markers for Day A
-    const periodMatchA = line.match(/Period ABC A(\d+)/i);
-    if (periodMatchA && i >= 1) {
-        const periodNum = parseInt(periodMatchA[1]);
-        const day = 'A';
-        
-        // Get course info from previous line
-        const courseLine = allLines[i - 1];
-        const courseMatch = courseLine.match(/^([A-Z]\d+[a-z]?)\s*-\s*(.+)$/);
-        
-        if (courseMatch) {
-            const courseCode = courseMatch[1];
-            const courseName = courseMatch[2];
-            
-            // Skip if it's a lunch period (we'll track it separately)
-            if (courseName.match(/Lunch/i)) {
-                lunchPeriods[day] = periodNum;
-                continue;
-            }
-            
-            // Get teacher and room from next lines
-            let teacher = '';
-            let room = '';
-            if (i + 1 < allLines.length) {
-                teacher = allLines[i + 1];
-            }
-            if (i + 2 < allLines.length) {
-                room = allLines[i + 2];
-            }
-            
-            scheduleData.push({
-                day: day,
-                period: periodNum,
-                course_code: courseCode,
-                course_name: courseName,
-                teacher: teacher,
-                room: room
-            });
-        }
-    }
+    // Skip empty lines
+    if (!line) continue;
     
-    // Look for period markers for Day B
-    const periodMatchB = line.match(/Period ABC B(\d+)/i);
-    if (periodMatchB && i >= 1) {
-        const periodNum = parseInt(periodMatchB[1]);
-        const day = 'B';
+    for (const day of dayPatterns) {
+        const periodRegex = new RegExp(`Period ABC ${day}(\\d+)`, 'i');
+        const periodMatch = line.match(periodRegex);
         
-        const courseLine = allLines[i - 1];
-        const courseMatch = courseLine.match(/^([A-Z]\d+[a-z]?)\s*-\s*(.+)$/);
-        
-        if (courseMatch) {
-            const courseCode = courseMatch[1];
-            const courseName = courseMatch[2];
+        if (periodMatch) {
+            const periodNum = parseInt(periodMatch[1]);
             
-            if (courseName.match(/Lunch/i)) {
-                lunchPeriods[day] = periodNum;
-                continue;
+            // Skip if we've already processed this period for this day
+            if (processedPeriods[day].has(periodNum)) {
+                break;
             }
+            processedPeriods[day].add(periodNum);
             
-            let teacher = '';
-            let room = '';
-            if (i + 1 < allLines.length) {
-                teacher = allLines[i + 1];
+            // Look back for course line (should be previous line)
+            if (i >= 1) {
+                const courseLine = allLines[i - 1];
+                
+                // Check if this is a course line (CourseCode - CourseName)
+                const courseMatch = courseLine.match(/^([A-Z]\d+[a-z]?)\s*-\s*(.+)$/);
+                
+                if (courseMatch) {
+                    const courseCode = courseMatch[1];
+                    const courseName = courseMatch[2];
+                    
+                    // Look ahead for teacher/room (should be on next line)
+                    let teacher = '';
+                    let room = '';
+                    
+                    if (i + 1 < allLines.length) {
+                        const teacherLine = allLines[i + 1];
+                        // Skip lines that are times, empty, PAWS, or other course codes
+                        if (teacherLine && 
+                            !teacherLine.match(/^\d{1,2}:\d{2}/) && 
+                            teacherLine !== 'PAWS' &&
+                            !teacherLine.match(/^[A-Z]\d+[a-z]?\s*-/)) {
+                            const teacherMatch = teacherLine.match(/^([^-]+?)(?:\s*-\s*(.+))?$/);
+                            if (teacherMatch) {
+                                teacher = teacherMatch[1].trim();
+                                room = teacherMatch[2] ? teacherMatch[2].trim() : '';
+                            }
+                        }
+                    }
+                    
+                    // Check if this is a lunch period and record it
+                    if (courseName.match(/Lunch/i)) {
+                        lunchPeriods[day] = periodNum;
+                        // Don't add lunch to scheduleData, but do track it
+                    } else {
+                        scheduleData.push({
+                            day: day,
+                            period: periodNum,
+                            course_code: courseCode,
+                            course_name: courseName,
+                            teacher: teacher,
+                            room: room
+                        });
+                    }
+                    
+                    break; // Break after finding match to avoid duplicate processing
+                }
             }
-            if (i + 2 < allLines.length) {
-                room = allLines[i + 2];
-            }
-            
-            scheduleData.push({
-                day: day,
-                period: periodNum,
-                course_code: courseCode,
-                course_name: courseName,
-                teacher: teacher,
-                room: room
-            });
-        }
-    }
-    
-    // Look for period markers for Day C
-    const periodMatchC = line.match(/Period ABC C(\d+)/i);
-    if (periodMatchC && i >= 1) {
-        const periodNum = parseInt(periodMatchC[1]);
-        const day = 'C';
-        
-        const courseLine = allLines[i - 1];
-        const courseMatch = courseLine.match(/^([A-Z]\d+[a-z]?)\s*-\s*(.+)$/);
-        
-        if (courseMatch) {
-            const courseCode = courseMatch[1];
-            const courseName = courseMatch[2];
-            
-            if (courseName.match(/Lunch/i)) {
-                lunchPeriods[day] = periodNum;
-                continue;
-            }
-            
-            let teacher = '';
-            let room = '';
-            if (i + 1 < allLines.length) {
-                teacher = allLines[i + 1];
-            }
-            if (i + 2 < allLines.length) {
-                room = allLines[i + 2];
-            }
-            
-            scheduleData.push({
-                day: day,
-                period: periodNum,
-                course_code: courseCode,
-                course_name: courseName,
-                teacher: teacher,
-                room: room
-            });
         }
     }
 }

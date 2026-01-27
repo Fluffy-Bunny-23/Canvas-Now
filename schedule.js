@@ -224,7 +224,12 @@ function updateSettingsUI() {
 // Load class colors from storage
 function loadClassColors() {
     chrome.storage.local.get(['classColors'], function(result) {
-        if (result.classColors) {
+        if (chrome.runtime && chrome.runtime.lastError) {
+            console.error('Error loading class colors:', chrome.runtime.lastError);
+            return;
+        }
+        
+        if (result && result.classColors) {
             classColors = result.classColors;
         }
     });
@@ -232,7 +237,11 @@ function loadClassColors() {
 
 // Save class colors to storage
 function saveClassColors() {
-    chrome.storage.local.set({ classColors: classColors });
+    chrome.storage.local.set({ classColors: classColors }, function() {
+        if (chrome.runtime && chrome.runtime.lastError) {
+            console.error('Failed to save class colors:', chrome.runtime.lastError);
+        }
+    });
 }
 
 // Get or generate a color for a specific class
