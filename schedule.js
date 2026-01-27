@@ -229,7 +229,7 @@ function loadClassColors() {
             return;
         }
         
-        if (result && result.classColors) {
+        if (result.classColors) {
             classColors = result.classColors;
         }
     });

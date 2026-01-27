@@ -41,7 +41,7 @@ for (let i = 0; i < allLines.length; i++) {
             
             // Skip if we've already processed this period for this day
             if (processedPeriods[day].has(periodNum)) {
-                break;
+                continue;
             }
             processedPeriods[day].add(periodNum);
             
