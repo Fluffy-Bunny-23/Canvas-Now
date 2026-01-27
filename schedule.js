@@ -4,11 +4,13 @@ let classes = [];
 let schedule = {};
 let scheduleSettings = {};
 let draggedClass = null;
+let classColors = {}; // Store persistent colors for each class
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     loadUserInfo();
     loadDevMode();
+    loadClassColors();
     loadScheduleSettings();
     loadSchedule();
     loadClasses();
@@ -219,6 +221,49 @@ function updateSettingsUI() {
     console.log('Settings UI updated successfully');
 }
 
+// Load class colors from storage
+function loadClassColors() {
+    chrome.storage.local.get(['classColors'], function(result) {
+        if (chrome.runtime && chrome.runtime.lastError) {
+            console.error('Error loading class colors:', chrome.runtime.lastError);
+            return;
+        }
+        
+        if (result.classColors) {
+            classColors = result.classColors;
+        }
+    });
+}
+
+// Save class colors to storage
+function saveClassColors() {
+    chrome.storage.local.set({ classColors: classColors }, function() {
+        if (chrome.runtime && chrome.runtime.lastError) {
+            console.error('Failed to save class colors:', chrome.runtime.lastError);
+        }
+    });
+}
+
+// Get or generate a color for a specific class
+function getClassColor(classId) {
+    // If color already exists for this class, return it
+    if (classColors[classId]) {
+        return classColors[classId];
+    }
+    
+    // Generate a new random pastel color for this class
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 45 + Math.floor(Math.random() * 30); // 45-75%
+    const lightness = 70 + Math.floor(Math.random() * 10);  // 70-80%
+    const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    
+    // Store it for future use
+    classColors[classId] = color;
+    saveClassColors();
+    
+    return color;
+}
+
 // Generate schedule table based on settings
 function generateScheduleTable() {
     console.log('=== GENERATING SCHEDULE TABLE ===');
@@ -298,14 +343,19 @@ function generateScheduleTable() {
                     const scheduledClass = daySchedule.find(item => item.period === period);
 
                     if (scheduledClass) {
+                        const courseTitle = scheduledClass.course_code 
+                            ? `${scheduledClass.course_code} - ${scheduledClass.course_name}`
+                            : scheduledClass.course_name;
                         cell.innerHTML = `
                             <div class="period-content">
-                                <strong>${scheduledClass.course_name}</strong><br>
+                                <strong>${courseTitle}</strong><br>
                                 <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
                                 <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                             </div>
                         `;
-                        cell.style.backgroundColor = getPeriodColor(period);
+                        // Use class-specific color instead of period color
+                        const classId = scheduledClass.course_id || scheduledClass.course_code || scheduledClass.course_name;
+                        cell.style.backgroundColor = getClassColor(classId);
                         cell.addEventListener('click', () => removeClassFromPeriod(dayName, period));
                     } else {
                         cell.innerHTML = '<div class="period-content">Click to add class</div>';
@@ -338,14 +388,19 @@ function generateScheduleTable() {
                 const scheduledClass = daySchedule.find(item => item.period === period);
 
                 if (scheduledClass) {
+                    const courseTitle = scheduledClass.course_code 
+                        ? `${scheduledClass.course_code} - ${scheduledClass.course_name}`
+                        : scheduledClass.course_name;
                     cell.innerHTML = `
                         <div class="period-content">
-                            <strong>${scheduledClass.course_name}</strong><br>
+                            <strong>${courseTitle}</strong><br>
                             <span style="font-size: 10px;">${scheduledClass.teacher || ''}</span><br>
                             <span style="font-size: 10px; opacity: 0.7;">${scheduledClass.room || ''}</span>
                         </div>
                     `;
-                    cell.style.backgroundColor = getPeriodColor(period);
+                    // Use class-specific color instead of period color
+                    const classId = scheduledClass.course_id || scheduledClass.course_code || scheduledClass.course_name;
+                    cell.style.backgroundColor = getClassColor(classId);
                     cell.addEventListener('click', () => removeClassFromPeriod(dayName, period));
                 } else {
                     cell.innerHTML = '<div class="period-content">Click to add class</div>';
@@ -403,17 +458,21 @@ function formatTime(date) {
     return date.toTimeString().slice(0, 5);
 }
 
-// Get period color based on period number
+// Get period color based on period number - uses vibrant colors like the PDF
 function getPeriodColor(period) {
+    // Define color palette similar to the PDF schedule colors
     const colors = [
-        '#f8c471', // Light orange
-        '#85c1e9', // Light blue
-        '#82e0aa', // Light green
-        '#f1948a', // Light red
-        '#bb8fce', // Light purple
-        '#f7dc6f', // Light yellow
-        '#85c1e9'  // Light blue again
+        'hsl(45, 85%, 75%)',   // Yellow/Gold
+        'hsl(200, 65%, 75%)',  // Light Blue
+        'hsl(120, 55%, 75%)',  // Light Green
+        'hsl(30, 85%, 70%)',   // Orange
+        'hsl(280, 50%, 75%)',  // Lavender/Purple
+        'hsl(180, 60%, 75%)',  // Cyan/Aqua
+        'hsl(15, 75%, 75%)',   // Peach/Coral
+        'hsl(210, 70%, 80%)'   // Sky Blue
     ];
+    
+    // Return color based on period (cycle through if more periods than colors)
     return colors[(period - 1) % colors.length];
 }
 
@@ -582,7 +641,9 @@ async function importPDFFile() {
         // Parse the extracted text to get schedule data
         showStatus('Parsing schedule data...', '');
         console.log('Step 5: Parsing schedule from PDF text...');
-        const scheduleData = parsePDFScheduleText(pdfText);
+        const parseResult = parsePDFScheduleText(pdfText);
+        const scheduleData = parseResult.scheduleData;
+        const lunchPeriods = parseResult.lunchPeriods;
 
         if (scheduleData.length === 0) {
             throw new Error('No schedule data found in PDF. Please ensure the PDF contains a valid school schedule with Day A, Day B, and Day C sections.');
@@ -590,10 +651,11 @@ async function importPDFFile() {
 
         console.log('Step 6: Parsed schedule data, count:', scheduleData.length);
         console.log('Schedule data preview:', scheduleData.slice(0, 5));
+        console.log('Lunch periods detected:', lunchPeriods);
 
-        // Apply the parsed schedule
+        // Apply the parsed schedule with lunch period information
         console.log('Step 7: Applying parsed schedule data...');
-        applyParsedSchedule(scheduleData, pdfText);
+        applyParsedSchedule(scheduleData, lunchPeriods, pdfText);
 
         console.log('Step 8: Schedule applied, checking current schedule object:', schedule);
 
@@ -609,85 +671,113 @@ async function importPDFFile() {
 
 // Parse PDF text to extract schedule information
 function parsePDFScheduleText(text) {
+    console.log('=== PARSING PDF TEXT ===');
     const scheduleData = [];
-
-    // Split by day patterns
+    const lunchPeriods = {}; // Track which period has lunch for each day
+    
+    // Split text into lines for easier processing
+    const allLines = text.split('\n').map(line => line.trim());
+    
+    // The PDF has schedules in columns with period identifiers like "Period ABC A1", "Period ABC B2", etc.
+    // Format is:
+    // Line i-1: Course Code - Course Name
+    // Line i: Time (Period ABC Xn)
+    // Line i+1: Teacher - Room
+    
     const dayPatterns = [
-        { pattern: /Day A \(MS\)/i, day: 'A' },
-        { pattern: /Day B \(MS\)/i, day: 'B' },
-        { pattern: /Day C \(MS\)/i, day: 'C' }
+        { pattern: /Period ABC A(\d+)/i, day: 'A' },
+        { pattern: /Period ABC B(\d+)/i, day: 'B' },
+        { pattern: /Period ABC C(\d+)/i, day: 'C' }
     ];
-
+    
     dayPatterns.forEach(({ pattern, day }) => {
-        const dayMatch = text.match(new RegExp(pattern.source + '(.*?)(?:Day|$)', 'is'));
-        if (dayMatch) {
-            const dayContent = dayMatch[1];
-
-            // Extract classes for each period
-            const classMatches = dayContent.match(/([A-Z]\d+[a-z]?\s*-\s*[^-\n]+)(?:\s*-|$)/g);
-
-            if (classMatches) {
-                classMatches.forEach((classText, index) => {
-                    const period = index + 1;
-
-                    // Extract course code and name
-                    const parts = classText.split(' - ');
-                    if (parts.length >= 2) {
-                        const courseCode = parts[0].trim();
-                        const courseName = parts[1].trim();
-
-                        // Extract teacher and room from the next line if available
-                        const lines = dayContent.split('\n');
+        console.log(`Parsing Day ${day}...`);
+        let processedPeriods = new Set();
+        
+        for (let i = 0; i < allLines.length; i++) {
+            const line = allLines[i];
+            
+            // Skip empty lines
+            if (!line) continue;
+            
+            // Look for lines with our day's period pattern
+            const periodMatch = line.match(pattern);
+            if (periodMatch) {
+                const periodNum = parseInt(periodMatch[1]);
+                
+                // Skip if we've already processed this period for this day
+                if (processedPeriods.has(periodNum)) continue;
+                processedPeriods.add(periodNum);
+                
+                // Look back for course line (should be previous line)
+                if (i >= 1) {
+                    const courseLine = allLines[i - 1];
+                    
+                    // Check if this is a course line (CourseCode - CourseName)
+                    const courseMatch = courseLine.match(/^([A-Z]\d+[a-z]?)\s*-\s*(.+)$/);
+                    
+                    if (courseMatch) {
+                        const courseCode = courseMatch[1];
+                        const courseName = courseMatch[2];
+                        
+                        // Extract time from current line
+                        const timeMatch = line.match(/(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})/);
+                        const timeInfo = timeMatch ? timeMatch[1] : '';
+                        
+                        // Look ahead for teacher/room (should be on next line)
                         let teacher = '';
                         let room = '';
-
-                        // Look for teacher and room info in subsequent lines
-                        for (let i = 0; i < lines.length; i++) {
-                            if (lines[i].includes(courseCode)) {
-                                // Check next few lines for teacher/room info
-                                for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
-                                    const line = lines[j].trim();
-                                    if (line && !line.match(/^\d|AM|PM|Period|Day/i)) {
-                                        if (!teacher && line.match(/^[A-Z][a-z]+/)) {
-                                            teacher = line;
-                                        } else if (!room && line.match(/Room/i)) {
-                                            const roomMatch = line.match(/Room\s*(\d+)/i);
-                                            if (roomMatch) {
-                                                room = `Room ${roomMatch[1]}`;
-                                            }
-                                        }
-                                    }
+                        
+                        if (i + 1 < allLines.length) {
+                            const teacherLine = allLines[i + 1];
+                            // Skip lines that are times, empty, PAWS, or other course codes
+                            if (teacherLine && 
+                                !teacherLine.match(/^\d{1,2}:\d{2}/) && 
+                                teacherLine !== 'PAWS' &&
+                                !teacherLine.match(/^[A-Z]\d+[a-z]?\s*-/)) {
+                                const teacherMatch = teacherLine.match(/^([^-]+?)(?:\s*-\s*(.+))?$/);
+                                if (teacherMatch) {
+                                    teacher = teacherMatch[1].trim();
+                                    room = teacherMatch[2] ? teacherMatch[2].trim() : '';
                                 }
-                                break;
                             }
                         }
-
-                        scheduleData.push({
-                            day: day,
-                            period: period,
-                            course_code: courseCode,
-                            course_name: courseName,
-                            teacher: teacher,
-                            room: room
-                        });
+                        
+                        // Check if this is a lunch period and record it
+                        if (courseName.match(/Lunch/i)) {
+                            console.log(`  Day ${day} has Lunch in Period ${periodNum}`);
+                            lunchPeriods[day] = periodNum;
+                            // Don't add lunch to scheduleData, but do track it
+                        } else {
+                            console.log(`  Day ${day} Period ${periodNum}: ${courseName} (${courseCode}) - ${teacher} - ${room}`);
+                            
+                            scheduleData.push({
+                                day: day,
+                                period: periodNum,
+                                course_code: courseCode,
+                                course_name: courseName,
+                                teacher: teacher,
+                                room: room,
+                                time: timeInfo
+                            });
+                        }
                     }
-                });
+                }
             }
         }
     });
-
-    return scheduleData;
+    
+    console.log(`=== PARSED ${scheduleData.length} TOTAL CLASSES ===`);
+    console.log('Detected lunch periods:', lunchPeriods);
+    
+    // Return both schedule data and lunch period info
+    return { scheduleData, lunchPeriods };
 }
 
 // Apply parsed schedule data to the current schedule
-function applyParsedSchedule(scheduleData, text = null) {
-    console.log('=== APPLYING SCHEDULE DATA ===');
-    console.log('Input scheduleData length:', scheduleData.length);
-    console.log('Input scheduleData sample:', scheduleData.slice(0, 3));
-
+function applyParsedSchedule(scheduleData, lunchPeriods, text = null) {
     // Clear existing schedule
     schedule = {};
-    console.log('Cleared existing schedule');
 
     // Group by day
     const dayGroups = {
@@ -696,9 +786,7 @@ function applyParsedSchedule(scheduleData, text = null) {
         'C': []
     };
 
-    console.log('Grouping data by day...');
     scheduleData.forEach(item => {
-        console.log('Processing item:', item);
         if (dayGroups[item.day]) {
             dayGroups[item.day].push({
                 period: item.period,
@@ -711,23 +799,38 @@ function applyParsedSchedule(scheduleData, text = null) {
         }
     });
 
-    console.log('Day groups after processing:', dayGroups);
-
     // Apply to schedule object
     Object.keys(dayGroups).forEach(day => {
         if (dayGroups[day].length > 0) {
             schedule[day] = dayGroups[day];
-            console.log(`Applied ${dayGroups[day].length} classes to day ${day}`);
         }
     });
 
-    console.log('Final schedule object:', schedule);
+    // Update schedule settings with detected lunch periods
+    if (lunchPeriods && Object.keys(lunchPeriods).length > 0) {
+        console.log('Updating lunch period settings from PDF:', lunchPeriods);
+        
+        // Update the schedule settings with lunch periods from PDF
+        if (lunchPeriods.A) {
+            scheduleSettings.lunchPeriodA = lunchPeriods.A;
+            console.log(`Set Day A lunch to period ${lunchPeriods.A}`);
+        }
+        if (lunchPeriods.B) {
+            scheduleSettings.lunchPeriodB = lunchPeriods.B;
+            console.log(`Set Day B lunch to period ${lunchPeriods.B}`);
+        }
+        if (lunchPeriods.C) {
+            scheduleSettings.lunchPeriodC = lunchPeriods.C;
+            console.log(`Set Day C lunch to period ${lunchPeriods.C}`);
+        }
+        
+        // Save the updated settings
+        saveScheduleSettings();
+    }
 
     // Save and regenerate table
-    console.log('Saving schedule...');
     saveSchedule();
 
-    console.log('Regenerating table...');
     // Ensure settings are loaded before generating table
     setTimeout(() => {
         generateScheduleTable();
@@ -737,8 +840,6 @@ function applyParsedSchedule(scheduleData, text = null) {
     if (text) {
         updateStudentInfoFromPDF(text);
     }
-
-    console.log('=== SCHEDULE APPLICATION COMPLETED ===');
 }
 
 // Extract and update student information from PDF
@@ -786,10 +887,11 @@ async function extractTextFromPDF(arrayBuffer) {
             const page = await pdf.getPage(pageNum);
             const textContent = await page.getTextContent();
 
-            // Combine text items from this page
+            // Combine text items from this page, preserving structure
+            // Each item is on its own line to maintain the PDF structure
             const pageText = textContent.items
                 .map(item => item.str)
-                .join(' ');
+                .join('\n');
 
             fullText += pageText + '\n';
         }

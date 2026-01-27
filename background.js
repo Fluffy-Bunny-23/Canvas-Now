@@ -246,11 +246,8 @@ async function getCourses() {
     }
 }
 
-// Authenticate with Canvas (simplified - would need proper OAuth implementation)
+// Authenticate with Canvas using stored API token
 async function authenticate() {
-    // This is a placeholder - real implementation would use OAuth 2.0
-    // For now, we'll assume the token is stored manually
-
     const result = await chrome.storage.local.get(['authToken', 'canvasInstance']);
     authToken = result.authToken;
     CANVAS_API_BASE = `${result.canvasInstance || 'https://canvas.instructure.com'}/api/v1`;

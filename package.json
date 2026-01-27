@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "dependencies": {
+    "pdfjs-dist": "^4.2.67"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.2"
+  }
+}

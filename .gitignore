@@ -1,0 +1,17 @@
+node_modules/
+npm-debug.log
+.DS_Store
+*.log
+dist/
+build/
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+eslint.config.js
+test-*.js
+test-*.mjs
+run-all-tests.sh
+TEST-RESULTS.md
+demo-*.html
